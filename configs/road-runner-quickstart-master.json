@@ -1,0 +1,60 @@
+{
+  "name": "BioBuzz AI Futures",
+  "field": "biobuzz",
+  "notes": "motor names match the Robot/subsystem classes.",
+  "lengthIn": 18,
+  "widthIn": 17,
+  "massKg": 13.29,
+  "batteryVolts": 12.8,
+  "batteryResistanceOhms": 0.06,
+  "assumeTeamDirectionsCorrect": true,
+  "emulateVelocityOverflow": true,
+  "autoCreateDevices": true,
+  "snapToCodePose": false,
+  "startPose": { "x": 0.0, "y": 0.0, "headingDeg": 180.0 },
+  "hubs": [
+    { "name": "Control Hub", "address": 173, "parent": true },
+    { "name": "Expansion Hub", "address": 129, "parent": false }
+  ],
+  "devices": [
+    {
+      "name": "leftFront",  "type": "DcMotorEx", "hub": "Control Hub", "port": 0,
+      "params": { "motorType": "goBILDA_435" }
+    },
+    {
+      "name": "rightFront", "type": "DcMotorEx", "hub": "Control Hub", "port": 1,
+      "params": { "motorType": "goBILDA_435" }
+    },
+    {
+      "name": "leftBack",   "type": "DcMotorEx", "hub": "Control Hub", "port": 2,
+      "params": { "motorType": "goBILDA_435" }
+    },
+    {
+      "name": "rightBack",  "type": "DcMotorEx", "hub": "Control Hub", "port": 3,
+      "params": { "motorType": "goBILDA_435" }
+    },
+    { "name": "imu", "type": "IMU", "hub": "Control Hub"},
+    {
+      "name": "WebCam 1", "type": "Webcam", "hub": "Control Hub", "port": 4,
+      "params": {
+        "mount": { "x": 6, "y": 0, "z": 10, "yawDeg": 0, "pitchDeg": 60 }
+      }
+    },
+    {
+      "name": "launchLeft", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 0,
+      "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004}
+    },
+    {
+      "name": "launchRight", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 1,
+      "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004}
+    },
+    {
+      "name": "leftServo", "type": "Servo", "hub": "Expansion Hub", "port": 2,
+      "params": {"secondsFullRange": 0.3}
+    },
+    {
+      "name": "rightServo", "type": "Servo", "hub": "Expansion Hub", "port": 3,
+      "params": {"secondsFullRange": 0.3}
+    }
+  ]
+}
