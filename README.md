@@ -1,8 +1,15 @@
 # FTCSim
 
+![The 3D view: BioBuzz field, robot mid-run, and the robot's own camera boxed onto a RED AUDIENCE tag](demo.png)
+
 A desktop simulator that runs **unmodified** FIRST Tech Challenge robot code. Point it at a
 repository based on [FtcRobotController](https://github.com/FIRST-Tech-Challenge/FtcRobotController),
 press INIT / START in the browser, and drive the simulated robot with a gamepad or the keyboard.
+
+The screenshot above is the 3D view: the field and robot in three dimensions, the robot's camera
+picture-in-picture in the lower left showing what the program actually sees — here the
+`AprilTagProcessor` reporting RED AUDIENCE at 100% — with the hardware, telemetry and log panels
+around it.
 
 This is a fork of [WheatleyFromPortal2/FTCSim](https://github.com/WheatleyFromPortal2/FTCSim). That
 project runs its first release on [this commit](https://github.com/WheatleyFromPortal2/FTCSim/commit/7ad0de4)
