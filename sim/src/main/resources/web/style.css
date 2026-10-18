@@ -70,6 +70,9 @@ h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing
 .gamepad .title { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; font-weight: 600; }
 .gamepad .title .src { color: var(--muted); font-weight: 400; font-size: 11px; }
 .gamepad .title select { font-size: 11px; padding: 2px 4px; }
+.gamepad .rumbleInd { display: none; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--warn); }
+.gamepad.rumbling { border-color: var(--warn); }
+.gamepad.rumbling .rumbleInd { display: inline; }
 .stick { width: 90px; height: 90px; border-radius: 50%; background: #10141b; border: 1px solid var(--border); position: relative; touch-action: none; }
 .stick .knob { position: absolute; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); left: 31px; top: 31px; box-shadow: 0 0 0 2px #0b0e13; pointer-events: none; }
 .stick .lab { position: absolute; bottom: -16px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--muted); }

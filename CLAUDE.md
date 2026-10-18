@@ -37,6 +37,16 @@ Desktop simulator for FTC robot code (see README.md for usage). Key facts for wo
   zero-crossing reset. Default velocity coefficients F = 32767/maxTps, P = 0.1F, I = 0.01F.
 - OpMode runner: an Error in the OpMode thread is caught through `RobotLog.threadPoolErrorHook`
   (the SDK's ThreadPool only logs it). INIT after an emergency stop restarts the robot automatically.
+- Gamepad effects: `gamepad1.rumble(...)` / `rumbleBlips()` / `stopRumble()` are queued on the OpMode's
+  *own* `gamepad1`/`gamepad2` instances (the runner creates them in `init`, tags them with
+  `setUserForEffects` and never replaces them — `newGamepadDataAvailable` only copies state, so queued
+  effects survive). `SimOpModeRunner.drainGamepadEffects()` polls those queues once per 20 ms event loop
+  pass, mirroring `FtcEventLoopHandler.gamepadEffects()` (50 ms, `CMD_RUMBLE_GAMEPAD`), and `Simulator`
+  relays them as `gamepad.rumble` / `gamepad.rumble.stop` websocket messages. app.js replays the steps on
+  the controller bound to that gamepad through `vibrationActuator.playEffect('dual-rumble')`, mapping
+  `large`->strong and `small`->weak; a zero-power effect and the stop message reset the actuator, and a
+  `-1` duration step is played as a long effect that a later effect or the stop message cancels.
+  `ledQueue`/`setLedColor` are still not forwarded (the Gamepad API has no LED support).
 - VisionPortal: `VisionPortalImpl` runs a 30 Hz loop driving `SimVisionProcessor`s;
   `AprilTagProcessorImpl` computes detections from `SimVision` (true pose + field + camera mount from
   the `WebcamName` config entry or `setCameraPose`). No camera frames exist.

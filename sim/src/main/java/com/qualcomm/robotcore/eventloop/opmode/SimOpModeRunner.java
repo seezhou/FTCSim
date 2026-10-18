@@ -28,6 +28,17 @@ public final class SimOpModeRunner {
     /** Receives every telemetry transmission (already composed into lines). */
     public interface TelemetryListener { void onTelemetry(List<String> lines, long timestampMs); }
 
+    /**
+     * Receives the gamepad effects the OpMode queued. On a real Robot Controller these are drained by
+     * {@code FtcEventLoopHandler.gamepadEffects()} and shipped to the Driver Station, which rumbles the
+     * physical controller; the simulator hands them to the browser instead.
+     */
+    public interface GamepadEffectListener {
+        void onRumble(int gamepadId, Gamepad.RumbleEffect effect);
+        /** The OpMode stopped: cancel any continuous rumble. */
+        void onStopRumble();
+    }
+
     public static final class Snapshot {
         public final State state; public final String opModeName; public final String flavor; public final double runtime;
         public final String error; public final List<String> telemetry; public final long telemetryTime; public final String warning; public final String globalError;
@@ -43,10 +54,14 @@ public final class SimOpModeRunner {
     private final Runnable afterStop;
     private final List<TelemetryListener> telemetryListeners = new CopyOnWriteArrayList<>();
     private final List<Consumer<State>> stateListeners = new CopyOnWriteArrayList<>();
+    private final List<GamepadEffectListener> gamepadEffectListeners = new CopyOnWriteArrayList<>();
 
     private final Object lock = new Object();
     private volatile State state = State.IDLE;
     private volatile OpMode opMode;
+    /** The gamepads the OpMode sees; they own the rumble queues the event loop drains. */
+    private volatile Gamepad opModeGamepad1;
+    private volatile Gamepad opModeGamepad2;
     private volatile OpModeEntry entry;
     private volatile String error;
     private volatile long stateSince = System.currentTimeMillis();
@@ -80,6 +95,7 @@ public final class SimOpModeRunner {
     public String error() { return error; }
     public void addTelemetryListener(TelemetryListener l) { telemetryListeners.add(l); }
     public void addStateListener(Consumer<State> l) { stateListeners.add(l); }
+    public void addGamepadEffectListener(GamepadEffectListener l) { gamepadEffectListeners.add(l); }
     public double runtime() { return opMode == null ? 0 : opMode.getRuntime(); }
     public double secondsInState() { return (System.currentTimeMillis() - stateSince) / 1000.0; }
 
@@ -119,10 +135,16 @@ public final class SimOpModeRunner {
             RobotLog.clearGlobalWarningMsg();
             try { beforeInit.run(); } catch (RuntimeException ex) { RobotLog.ee(TAG, ex, "hardware reset before init failed"); }
             instance.hardwareMap = hardwareMap;
+            // OpModeManagerImpl gives the OpMode its own gamepad instances (which own the effect queues the
+            // event loop drains) and tags them so the Driver Station knows which controller to rumble.
             instance.gamepad1 = new Gamepad();
             instance.gamepad2 = new Gamepad();
             instance.gamepad1.setUser(org.firstinspires.ftc.robotcore.internal.ui.GamepadUser.ONE);
             instance.gamepad2.setUser(org.firstinspires.ftc.robotcore.internal.ui.GamepadUser.TWO);
+            instance.gamepad1.setUserForEffects(org.firstinspires.ftc.robotcore.internal.ui.GamepadUser.ONE.id);
+            instance.gamepad2.setUserForEffects(org.firstinspires.ftc.robotcore.internal.ui.GamepadUser.TWO.id);
+            opModeGamepad1 = instance.gamepad1;
+            opModeGamepad2 = instance.gamepad2;
             instance.internalOpModeServices = services;
             instance.newGamepadDataAvailable(gamepad1, gamepad2);
             telemetryLines = new ArrayList<>();
@@ -168,6 +190,9 @@ public final class SimOpModeRunner {
         try { stopper.join(timeout); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
         boolean stuck = stopper.isAlive();
         stopEventLoop();
+        opModeGamepad1 = null;
+        opModeGamepad2 = null;
+        fireStopRumble();
         Throwable userException = om.exception != null ? om.exception : om.noClassDefFoundError;
         if (userException == null) userException = threadError;
         threadError = null;
@@ -278,6 +303,7 @@ public final class SimOpModeRunner {
                     ftcsim.hardware.HardwareBus.gate();
                     om.newGamepadDataAvailable(gamepad1, gamepad2);
                     om.internalOnEventLoopIteration();
+                    drainGamepadEffects();
                 } catch (RuntimeException ex) {
                     RobotLog.ee(TAG, ex, "event loop iteration failed");
                 }
@@ -292,6 +318,27 @@ public final class SimOpModeRunner {
             if (sleep > 0) { try { Thread.sleep(sleep / 1_000_000L, (int) (sleep % 1_000_000L)); } catch (InterruptedException e) { return; } }
             else next = System.nanoTime();
         }
+    }
+
+    // ------------------------------------------------------------------ gamepad effects
+    /**
+     * Grabs the rumble effects the OpMode queued ({@code gamepad1.rumble(...)}) the way
+     * {@code FtcEventLoopHandler.gamepadEffects()} does on the Robot Controller: one poll per gamepad per
+     * event loop pass. Both queues are 1-element evicting queues, so a tight loop of rumble calls
+     * collapses to the latest effect instead of piling up.
+     */
+    private void drainGamepadEffects() {
+        Gamepad gp1 = opModeGamepad1, gp2 = opModeGamepad2;
+        if (gp1 != null) { Gamepad.RumbleEffect effect = gp1.rumbleQueue.poll(); if (effect != null) fireRumble(1, effect); }
+        if (gp2 != null) { Gamepad.RumbleEffect effect = gp2.rumbleQueue.poll(); if (effect != null) fireRumble(2, effect); }
+    }
+
+    private void fireRumble(int gamepadId, Gamepad.RumbleEffect effect) {
+        for (GamepadEffectListener l : gamepadEffectListeners) { try { l.onRumble(gamepadId, effect); } catch (RuntimeException ignored) {} }
+    }
+
+    private void fireStopRumble() {
+        for (GamepadEffectListener l : gamepadEffectListeners) { try { l.onStopRumble(); } catch (RuntimeException ignored) {} }
     }
 
     // ------------------------------------------------------------------ telemetry

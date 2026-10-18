@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
 import com.qualcomm.robotcore.eventloop.opmode.SimOpModeRunner;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.util.RobotLog;
 import ftcsim.bridge.Configurables;
 import ftcsim.bridge.DashboardBridge;
@@ -92,6 +93,10 @@ public final class Simulator {
         runner = new SimOpModeRunner(hardware.hardwareMap, this::beforeInit, this::afterStop);
         hardware.snapAllowed = () -> runner.state() == SimOpModeRunner.State.INIT || runner.state() == SimOpModeRunner.State.IDLE;
         runner.addStateListener(s -> { if (s == SimOpModeRunner.State.RUNNING && matchTimerEnabled) armMatchTimer(); });
+        runner.addGamepadEffectListener(new SimOpModeRunner.GamepadEffectListener() {
+            @Override public void onRumble(int gamepadId, Gamepad.RumbleEffect effect) { broadcastRumble(gamepadId, effect); }
+            @Override public void onStopRumble() { broadcastRumbleStop(); }
+        });
         world.start();
 
         if (repo != null) {
@@ -392,6 +397,28 @@ public final class Simulator {
     }
 
     private void broadcastOpModes() { if (web != null) web.broadcast(gson.toJson(opModesMessage())); }
+
+    /**
+     * Ships a gamepad rumble effect queued by the OpMode to the UI, which replays it on the physical
+     * controller through the Gamepad API. The steps are what the Robot Controller would send the Driver
+     * Station in a CMD_RUMBLE_GAMEPAD command: {@code large}/{@code small} are 0..255 motor intensities
+     * and {@code duration} is milliseconds (-1 = until cancelled).
+     */
+    private void broadcastRumble(int gamepadId, Gamepad.RumbleEffect effect) {
+        if (web == null) return;
+        List<Map<String, Object>> steps = new ArrayList<>();
+        for (Gamepad.RumbleEffect.Step step : effect.steps) {
+            Map<String, Object> s = new LinkedHashMap<>();
+            s.put("large", step.large); s.put("small", step.small); s.put("duration", step.duration);
+            steps.add(s);
+        }
+        Map<String, Object> msg = new LinkedHashMap<>();
+        msg.put("type", "gamepad.rumble"); msg.put("id", gamepadId); msg.put("user", effect.user); msg.put("steps", steps);
+        web.broadcast(gson.toJson(msg));
+    }
+
+    /** The OpMode stopped: a continuous rumble must not outlive it. */
+    private void broadcastRumbleStop() { if (web != null) web.broadcast(gson.toJson(Map.of("type", "gamepad.rumble.stop"))); }
 
     private Map<String, Object> stateMessage() {
         Map<String, Object> m = new LinkedHashMap<>();

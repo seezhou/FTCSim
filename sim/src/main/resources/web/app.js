@@ -15,7 +15,7 @@ function connect() {
   const ws = new WebSocket(`${proto}://${location.host}/ws`);
   state.ws = ws;
   ws.onopen = () => { $('connPill').textContent = 'connected'; $('connPill').className = 'pill ok'; send({ type: 'hello' }); };
-  ws.onclose = () => { $('connPill').textContent = 'offline'; $('connPill').className = 'pill bad'; setTimeout(connect, 1000); };
+  ws.onclose = () => { stopAllRumble(); $('connPill').textContent = 'offline'; $('connPill').className = 'pill bad'; setTimeout(connect, 1000); };
   ws.onmessage = (ev) => { try { handle(JSON.parse(ev.data)); } catch (e) { console.error(e); } };
 }
 function send(obj) { if (state.ws && state.ws.readyState === 1) state.ws.send(JSON.stringify(obj)); }
@@ -32,6 +32,8 @@ function handle(m) {
     case 'graphs': state.graphs = m.series; if (state.rightTab === 'graph') renderGraph(); break;
     case 'config': $('configText').value = m.json; $('configFile').textContent = m.file; break;
     case 'toast': toast(m.level, m.text); break;
+    case 'gamepad.rumble': applyRumble(m); break;
+    case 'gamepad.rumble.stop': stopAllRumble(); break;
   }
 }
 
@@ -401,7 +403,7 @@ class VirtualPad {
     this.el = el; this.id = id; this.keys = new Set();
     this.s = { lx: 0, ly: 0, rx: 0, ry: 0, lt: 0, rt: 0, type: 'xbox' }; for (const [k] of BUTTONS) this.s[k] = false;
     this.lastSent = ''; this.source = 'virtual';
-    el.innerHTML = `<div class="title">Gamepad ${id} <span class="src">virtual · ${id === 1 ? 'keyboard: WASD / arrows / Z X C V / 1 2 / Q E / T F G H' : 'physical controller: press Start+B'}</span><span class="spacer"></span><select class="physSel"><option value="">no controller</option></select></div>
+    el.innerHTML = `<div class="title">Gamepad ${id} <span class="src">virtual · ${id === 1 ? 'keyboard: WASD / arrows / Z X C V / 1 2 / Q E / T F G H' : 'physical controller: press Start+B'}</span><span class="spacer"></span><span class="rumbleInd" title="the robot is rumbling this gamepad">rumble</span><select class="physSel"><option value="">no controller</option></select></div>
       <div class="stick" data-stick="l"><div class="knob"></div><div class="lab">left stick</div></div>
       <div class="mid"></div>
       <div class="stick" data-stick="r"><div class="knob"></div><div class="lab">right stick</div></div>`;
@@ -448,6 +450,61 @@ class VirtualPad {
   }
 }
 const pads = { 1: new VirtualPad($('gp1'), 1), 2: new VirtualPad($('gp2'), 2) };
+
+// ------------------------------------------------------------------ rumble
+// gamepad1.rumble(...) in the team code is drained by the simulator's event loop and arrives here as a
+// list of steps: large / small are the two rumble motors (0..255) and duration is milliseconds, or -1
+// for "until cancelled". Replay them on the assigned physical controller through the Gamepad API, and
+// mirror the activity on the on-screen pad so the effect is visible without a controller.
+const RUMBLE_CONTINUOUS_MS = 10 * 60 * 1000;
+const rumble = { 1: { timers: [], untilTimer: 0 }, 2: { timers: [], untilTimer: 0 } };
+
+function physicalGamepad(id) {
+  const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+  return state.physical[id] == null ? null : (gps.find(g => g.index === state.physical[id]) || null);
+}
+function rumbleActuator(id) {
+  const gp = physicalGamepad(id); if (!gp) return null;
+  const act = gp.vibrationActuator || (gp.hapticActuators && gp.hapticActuators[0]);
+  return act && typeof act.playEffect === 'function' ? act : null;
+}
+function playRumbleStep(act, step) {
+  if (!act) return;
+  const duration = step.duration < 0 ? RUMBLE_CONTINUOUS_MS : Math.max(0, step.duration | 0);
+  const mag = (v) => Math.min(1, Math.max(0, (v | 0) / 255));
+  try { act.playEffect('dual-rumble', { startDelay: 0, duration, weakMagnitude: mag(step.small), strongMagnitude: mag(step.large) }); } catch (e) { /* controller went away */ }
+}
+function cancelRumbleTimers(id) {
+  const st = rumble[id];
+  for (const t of st.timers) clearTimeout(t);
+  st.timers = []; clearTimeout(st.untilTimer); st.untilTimer = 0;
+}
+function resetActuator(id) {
+  const act = rumbleActuator(id); if (!act) return;
+  try { if (typeof act.reset === 'function') act.reset(); else act.playEffect('dual-rumble', { duration: 0, weakMagnitude: 0, strongMagnitude: 0 }); } catch (e) {}
+}
+function rumbleIndicator(id, on) { const el = pads[id] && pads[id].el; if (el) el.classList.toggle('rumbling', on); }
+function stopRumble(id) { cancelRumbleTimers(id); resetActuator(id); rumbleIndicator(id, false); }
+function stopAllRumble() { stopRumble(1); stopRumble(2); }
+function applyRumble(m) {
+  const id = m.id === 2 ? 2 : 1;
+  const steps = Array.isArray(m.steps) ? m.steps : [];
+  cancelRumbleTimers(id);
+  let power = 0;
+  for (const s of steps) power += Math.abs(s.large | 0) + Math.abs(s.small | 0);
+  if (!steps.length || power === 0) { resetActuator(id); rumbleIndicator(id, false); return; } // e.g. stopRumble()
+  const act = rumbleActuator(id), st = rumble[id];
+  let at = 0, duration = 0;
+  for (const step of steps) {
+    const delay = at;
+    st.timers.push(setTimeout(() => playRumbleStep(act, step), delay));
+    if (step.duration < 0) { duration = RUMBLE_CONTINUOUS_MS; break; } // a continuous step never hands over
+    at += Math.max(0, step.duration | 0); duration = at;
+  }
+  rumbleIndicator(id, true);
+  if (duration < RUMBLE_CONTINUOUS_MS) st.untilTimer = setTimeout(() => rumbleIndicator(id, false), duration);
+}
+
 let keepalive = 0;
 function gamepadLoop() {
   const gps = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
@@ -466,7 +523,7 @@ function gamepadLoop() {
     const p = pads[id]; const phys = state.physical[id] != null ? gps.find(g => g.index === state.physical[id]) : null;
     if (phys) { p.applyPhysical(phys); p.el.querySelector('.src').textContent = 'physical: ' + phys.id.slice(0, 40); }
     else if (id === state.keyboardPad && p.keys.size) { p.applyKeyboard(); }
-    // rumble
+    // resend the latest state periodically so a dropped packet does not stick
     p.sendIfNeeded(keepalive % 15 === 0);
   }
   keepalive++;

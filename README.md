@@ -75,7 +75,8 @@ the simulator's own tabs.
 * **Config** – live editing of `@Configurable` / `@Config` static fields, as on Panels.
 * **Log** – RobotLog, `System.out` / `System.err` and stack traces, filterable by level and text.
 * **Gamepads** – two on-screen gamepads. Gamepad 1 is driven by the keyboard, both can be bound to a
-  physical controller (press Start+A / Start+B on the controller like on a real Driver Station).
+  physical controller (press Start+A / Start+B on the controller like on a real Driver Station). Rumble
+  requested by the team code is played on the bound controller and flagged with a `rumble` badge on the pad.
 
 Keyboard map for gamepad 1:
 
@@ -162,8 +163,11 @@ SDK uses, so `Direction.FORWARD` means the same thing as on the robot.
   2.5 ms), so loop times match a real robot and bulk caching pays off exactly as it does on the field.
   The `I/O` pill in the toolbar counts the transactions and the time they cost since INIT.
 * Driver Station semantics: INIT / START / STOP, `opModeIsActive()`, stuck-OpMode detection,
-  emergency stop on uncaught exceptions with the stack trace in the log, gamepad edge detection and
-  rumble/LED calls, telemetry, match timer.
+  emergency stop on uncaught exceptions with the stack trace in the log, gamepad edge detection,
+  telemetry, match timer.
+* Gamepad rumble: `gamepad1.rumble(...)`, `rumbleBlips()` and `stopRumble()` are drained from the
+  OpMode's effect queues and replayed on the controller bound to that gamepad through the browser
+  Gamepad API. The on-screen pad shows a `rumble` badge so the effect is visible without a controller.
 * Team code lifecycle: fresh class loader per build (statics reset like a robot restart), `@TeleOp` /
   `@Autonomous` / `@Disabled` discovery, `SelectableOpMode`s, OpMode registration from
   `OpModeRegistrar` methods.
