@@ -29,9 +29,17 @@ public final class WebServer {
 
     public static final class Response {
         public final int status; public final String contentType; public final byte[] body;
+        /** Set by redirect(); written out as a Location header instead of a body. */
+        public String location;
         public Response(int status, String contentType, byte[] body) { this.status = status; this.contentType = contentType; this.body = body; }
         public static Response text(int status, String s) { return new Response(status, "text/plain; charset=utf-8", s.getBytes(StandardCharsets.UTF_8)); }
         public static Response json(String s) { return new Response(200, "application/json; charset=utf-8", s.getBytes(StandardCharsets.UTF_8)); }
+        /** 303 so the browser follows with GET whatever the original method was. */
+        public static Response redirect(String location) {
+            Response r = new Response(303, "text/plain; charset=utf-8", new byte[0]);
+            r.location = location;
+            return r;
+        }
     }
 
     /**
@@ -228,11 +236,17 @@ public final class WebServer {
                 if (r != null) return r;
             }
         }
-        // The 3D view is the front door; the 2D view lives under /2d/. Both directories ship their
-        // own index.html, so a bare directory request resolves the same way a file request does.
-        if ("/".equals(path)) path = "/3d/index.html";
-        else if ("/2d".equals(path) || "/2d/".equals(path)) path = "/2d/index.html";
-        else if ("/3d".equals(path) || "/3d/".equals(path)) path = "/3d/index.html";
+        // Both views live in their own directory, each with its own index.html and assets that are
+        // referenced relatively. Serving the file for "/" would leave the browser resolving those
+        // assets against "/" and 404-ing on every one of them, so redirect to the directory instead
+        // and let the relative paths resolve the way the author wrote them.
+        if ("/".equals(path)) return Response.redirect("/3d/");
+        if ("/2d".equals(path)) return Response.redirect("/2d/");
+        if ("/3d".equals(path)) return Response.redirect("/3d/");
+        // Browsers ask for this unprompted; answering 204 keeps it out of the console.
+        if ("/favicon.ico".equals(path)) return new Response(204, "image/x-icon", new byte[0]);
+        if ("/2d/".equals(path)) path = "/2d/index.html";
+        else if ("/3d/".equals(path)) path = "/3d/index.html";
         if (path.contains("..")) return Response.text(403, "forbidden");
         byte[] data = null;
         if (overrideDir != null) {
@@ -273,10 +287,12 @@ public final class WebServer {
     }
 
     private static void writeResponse(OutputStream out, Response r, boolean keepAlive) throws IOException {
-        String reason = r.status == 200 ? "OK" : r.status == 404 ? "Not Found" : r.status == 400 ? "Bad Request" : r.status == 403 ? "Forbidden" : "Error";
+        String reason = r.status == 200 ? "OK" : r.status == 404 ? "Not Found" : r.status == 400 ? "Bad Request"
+            : r.status == 403 ? "Forbidden" : r.status == 303 ? "See Other" : "Error";
         String head = "HTTP/1.1 " + r.status + " " + reason + "\r\n" +
             "Content-Type: " + r.contentType + "\r\n" +
             "Content-Length: " + r.body.length + "\r\n" +
+            (r.location != null ? "Location: " + r.location + "\r\n" : "") +
             "Cache-Control: no-cache\r\n" +
             "Access-Control-Allow-Origin: *\r\n" +
             "Connection: " + (keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
