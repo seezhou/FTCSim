@@ -43,7 +43,11 @@ public class HardwareLatencyTest {
         for (int i = 0; i < 20; i++) m.setPower(0.5);
         double ms = (System.nanoTime() - t0) / 1e6;
         assertEquals(20, HardwareBus.writeCount(), "one transaction per setPower");
-        assertTrue(ms > 40 && ms < 80, "20 writes should take about 50 ms, took " + ms);
+        assertEquals(50.0, HardwareBus.ioMillis(), 1e-6, "20 writes at 2.5 ms is 50 ms of hub time");
+        // Wall clock, on whatever machine this runs on: the bounds only have to catch a unit error or
+        // a wait that never happens, not benchmark the box. A wait rounded up to the 15.6 ms OS timer
+        // tick lands near 300 ms instead, which is exactly what this test caught on Windows.
+        assertTrue(ms > 40 && ms < 150, "20 writes should take about 50 ms, took " + ms);
     }
 
     @Test public void bulkCachingSavesTransactions() {

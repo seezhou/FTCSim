@@ -8,3 +8,4 @@ ftcsim.properties
 /configs/*.local.json
 /local.properties
 tools/node_modules
+biobuzz_gm/

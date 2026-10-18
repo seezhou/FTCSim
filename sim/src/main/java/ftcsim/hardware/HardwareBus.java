@@ -93,14 +93,29 @@ public final class HardwareBus {
         }
     }
 
-    /** Accurate short sleep: park most of it, spin the last fraction of a millisecond. */
+    /** The tail of a wait is spun, so the cheaper waits below it do not decide when we wake up. */
+    private static final long SPIN_NANOS = 1_500_000L;
+
+    /**
+     * Accurate short sleep, well under the OS timer tick.
+     *
+     * <p>{@link LockSupport#parkNanos} cannot be used for this: on Windows it rounds every request up
+     * to the 15.6 ms scheduler tick, so parking the first millisecond of a 2.5 ms hub write actually
+     * cost 15 ms and every OpMode ran about six times slower than on a real robot. A millisecond
+     * sleep does land within about a millisecond there, so the wait sleeps in whole milliseconds and
+     * spins the last {@link #SPIN_NANOS} to land on the deadline.
+     */
     private static void sleepNanos(long nanos) {
         long deadline = System.nanoTime() + nanos;
         long remaining = nanos;
         while (remaining > 0) {
             if (Thread.currentThread().isInterrupted()) return;
-            if (remaining > 1_500_000L) LockSupport.parkNanos(remaining - 1_000_000L);
-            else Thread.onSpinWait();
+            if (remaining - SPIN_NANOS >= 1_000_000L) {
+                try { Thread.sleep((remaining - SPIN_NANOS) / 1_000_000L); }
+                catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+            } else {
+                Thread.onSpinWait();
+            }
             remaining = deadline - System.nanoTime();
         }
     }
