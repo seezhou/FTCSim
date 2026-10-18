@@ -9,9 +9,14 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 
 /**
@@ -29,28 +34,97 @@ public final class WebServer {
         public static Response json(String s) { return new Response(200, "application/json; charset=utf-8", s.getBytes(StandardCharsets.UTF_8)); }
     }
 
-    /** A connected WebSocket client. */
+    /**
+     * A connected WebSocket client.
+     *
+     * The writer thread owns the socket write path, and the queue between it and send() is
+     * deliberately lock-free. Earlier versions wrote the socket inline while holding a
+     * monitor; a peer that stopped reading (a page closed without a clean disconnect) then
+     * filled the TCP send buffer and blocked flush() forever, parking the single broadcast
+     * thread inside that monitor — silently, with no exception and nothing in the log.
+     * send() therefore never blocks and never takes a lock a wedged writer could be holding.
+     */
     public final class Client {
+        /** Drop a client that has fallen this far behind; it is not draining its socket. */
+        private static final int DEAD_AFTER_DROPS = 8;
         private final Socket socket;
         private final OutputStream out;
-        private final Object writeLock = new Object();
-        private volatile boolean open = true;
-        public final Map<String, Object> attributes = new HashMap<>();
-        Client(Socket socket, OutputStream out) { this.socket = socket; this.out = out; }
-        public boolean isOpen() { return open; }
-        public void send(String text) {
-            if (!open) return;
-            byte[] payload = text.getBytes(StandardCharsets.UTF_8);
-            try {
-                synchronized (writeLock) { writeFrame(out, 0x1, payload); }
-            } catch (IOException e) { close(); }
+        private final AtomicBoolean open = new AtomicBoolean(true);
+        /** Pre-encoded frames waiting for the writer thread. LinkedBlockingQueue for timed poll. */
+        private final LinkedBlockingQueue<byte[]> pending = new LinkedBlockingQueue<>();
+        private final AtomicInteger pendingCount = new AtomicInteger();
+        private final int maxPending = 64;
+        private final AtomicLong droppedFrames = new AtomicLong();
+        public final Map<String, Object> attributes = new ConcurrentHashMap<>();
+
+        Client(Socket socket, OutputStream out) {
+            this.socket = socket;
+            this.out = out;
+            Thread w = new Thread(this::drainLoop, "ftcsim-ws-writer");
+            w.setDaemon(true);
+            w.start();
         }
+
+        public boolean isOpen() { return open.get(); }
+
+        /** A client that has been dropping frames for a while is not coming back. */
+        boolean isDead() { return droppedFrames.get() >= DEAD_AFTER_DROPS; }
+
+        /** Never blocks and never takes a lock: encode and hand off to the writer thread. */
+        public void send(String text) {
+            if (!open.get()) return;
+            byte[] frame = encodeFrame(0x1, text.getBytes(StandardCharsets.UTF_8));
+            if (pendingCount.get() >= maxPending) {
+                if (droppedFrames.incrementAndGet() == DEAD_AFTER_DROPS) close();
+                return;
+            }
+            pending.offer(frame);
+            pendingCount.incrementAndGet();
+        }
+
+        /** Enqueue a control frame (ping/pong/close) with the same path as data frames. */
+        void sendPong(byte[] payload) {
+            if (!open.get()) return;
+            pending.offer(encodeFrame(0xA, payload));
+            pendingCount.incrementAndGet();
+        }
+
+        private void drainLoop() {
+            while (open.get() || !pending.isEmpty()) {
+                byte[] frame;
+                try {
+                    frame = pending.poll(200, java.util.concurrent.TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) { return; }
+                if (frame == null) continue;
+                pendingCount.decrementAndGet();
+                try {
+                    out.write(frame);
+                    out.flush();
+                } catch (IOException e) { close(); return; }
+            }
+        }
+
+        /**
+         * Closes the client. Exactly one thread runs the body; concurrent callers return at
+         * once. The socket is closed first because that is what unblocks a writer stuck in
+         * flush() on a dead peer — the cleanup must never wait on the writer's lock.
+         */
         public void close() {
-            if (!open) return;
-            open = false;
-            try { synchronized (writeLock) { writeFrame(out, 0x8, new byte[0]); } } catch (IOException ignored) {}
-            try { socket.close(); } catch (IOException ignored) {}
+            if (!open.compareAndSet(true, false)) return;
             clients.remove(this);
+            try { socket.close(); } catch (IOException ignored) {}
+        }
+
+        /** Builds a complete WebSocket frame (header + payload) ready to write. */
+        private byte[] encodeFrame(int opcode, byte[] payload) {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream(payload.length + 10);
+            bos.write(0x80 | opcode);
+            int len = payload.length;
+            if (len < 126) bos.write(len);
+            else if (len < 65536) { bos.write(126); bos.write(len >> 8); bos.write(len & 0xFF); }
+            else { bos.write(127); for (int i = 7; i >= 0; i--) bos.write((int) (((long) len >> (8 * i)) & 0xFF)); }
+            bos.write(payload, 0, payload.length);
+            return bos.toByteArray();
         }
     }
 
@@ -255,7 +329,9 @@ public final class WebServer {
                 if (masked) for (int i = 0; i < payload.length; i++) payload[i] ^= mask[i & 3];
                 switch (opcode) {
                     case 0x8: client.close(); return;
-                    case 0x9: synchronized (client.writeLock) { writeFrame(client.out, 0xA, payload); } break;
+                    // Pong replies go through the writer thread like any other frame; writing
+                    // directly here would block the reader on a slow peer's socket.
+                    case 0x9: client.sendPong(payload); break;
                     case 0xA: break;
                     case 0x0: case 0x1: case 0x2:
                         if (opcode != 0) messageOpcode = opcode;

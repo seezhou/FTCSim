@@ -1,0 +1,258 @@
+/* FTCSim 3D overlay styles */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; font-family: system-ui, sans-serif; }
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+#hud { position: absolute; inset: 0; pointer-events: none; color: #e8ebf0; }
+.panel {
+  position: absolute; pointer-events: auto;
+  background: rgba(20, 24, 32, 0.82); border: 1px solid #2c3442; border-radius: 10px;
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+  backdrop-filter: blur(6px);
+}
+/* pinned nav bar: flush to the top edge, no side gaps, holds the summary info */
+#topBar {
+  top: 0; left: 0; right: 0; border-radius: 0;
+  border-top: 0; border-left: 0; border-right: 0;
+  padding: 6px 12px; gap: 5px; z-index: 3;
+  background: rgba(16, 19, 26, 0.92);
+}
+#topBar .row { gap: 6px; }
+/* The meta strip sits between the brand and the field/state pills. It used to be capped at a
+   fixed 210px, which truncated "SDK 12.0… · config BioBuzz AI Futures" even though the bar had
+   plenty of free room to its right. Let it grow into the slack and shrink only when the bar is
+   genuinely crowded, so the summary stays readable instead of ellipsised at an arbitrary width. */
+#topBar .meta { flex: 0 1 auto; min-width: 0; max-width: none; }
+#topBar .pill { padding: 2px 8px; font-size: 11px; }
+#topBar button { padding: 3px 9px; font-size: 11.5px; }
+#topBar #ioPill { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+#topBar #fpsPill { color: #7ee2a0; min-width: 62px; text-align: center; }
+#topBar .sep { width: 1px; align-self: stretch; margin: 2px 2px; background: #2c3442; }
+
+/* floating panels start below the pinned header (--hdr is published by main.js) */
+#dsPanel { top: calc(var(--hdr, 78px) + 8px); left: 12px; bottom: calc(12px + var(--camsz, 0px)); width: 400px; resize: both; overflow: auto; min-width: 300px; min-height: 120px; }
+
+/* robot camera panel, bottom of the left column. It publishes its own height as
+   --camsz (main.js) so #dsPanel can give it exactly the room it needs. */
+#camPanel {
+  left: 12px; bottom: 12px; width: 400px; resize: both; overflow: hidden;
+  min-width: 240px; min-height: 96px; padding: 8px 10px;
+}
+#camPanel .ptitle { padding-right: 34px; }
+#camPanel #camFps { color: #7ee2a0; font-size: 11px; margin-left: auto; }
+.camwrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0b0e13; border: 1px solid #262d3a; border-radius: 7px; overflow: hidden; }
+#camCanvas { display: block; width: 100%; height: 100%; }
+#camOverlay { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+.camhint {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #7a8698; pointer-events: none; text-align: center; padding: 0 8px;
+}
+.camhint.hidden { display: none; }
+.camctl { gap: 6px; }
+.camctl #camPitch { flex: 1; min-width: 90px; accent-color: #ffd166; }
+.camdeg { min-width: 40px; text-align: right; font-size: 11.5px; color: #ffd166; }
+.camstatus { font-size: 10.5px; color: #7a8698; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.camstatus.live { color: #7ee2a0; }
+.camstatus.free { color: #ffd166; }
+#camPanel.collapsed .camwrap, #camPanel.collapsed .camstatus { display: none; }
+#dsPanel .tellines { flex: 1; min-height: 120px; max-height: none; }
+.pdivider { height: 1px; background: #2c3442; margin: 2px 0; }
+
+/* centre column: pose strip + field event stacked, so one can collapse under the other */
+#centerCol {
+  position: absolute; pointer-events: none;
+  top: calc(var(--hdr, 78px) + 8px); left: 424px; right: 424px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#centerCol .panel { position: static; pointer-events: auto; }
+#posePanel { resize: horizontal; overflow: auto; min-width: 430px; }
+#fieldEventPanel { resize: horizontal; overflow: auto; min-width: 320px; }
+
+/* Pose · View — flat side-by-side split (pose left, view right); stretch to the hardware panel */
+.pvsplit { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
+.pvcol { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pvpose { flex: 1 1 auto; }
+.pvview { flex: 0 0 auto; }
+.pvsep { width: 1px; background: #2c3442; align-self: stretch; margin: 2px 0; }
+.pvview .row, .pvpose .row { gap: 6px; }
+/* stack the two halves again when the window is too narrow for a side-by-side split */
+@media (max-width: 1420px) {
+  .pvsplit { flex-direction: column; }
+  .pvsep { width: auto; height: 1px; }
+  .pvview { flex: 0 0 auto; }
+}
+#rightPanel { top: calc(var(--hdr, 78px) + 8px); right: 12px; bottom: 12px; width: 400px; height: auto; max-height: none; resize: both; overflow: auto; min-width: 300px; min-height: 90px; }
+#padsPanel { bottom: 12px; left: 50%; transform: translateX(-50%); width: min(1000px, calc(100vw - 24px)); max-width: calc(100vw - 24px); resize: vertical; overflow: auto; min-height: 60px; }
+.spacer { flex: 1; }
+.meta { color: #7a8698; font-size: 11.5px; max-width: 440px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* per-panel title row + collapse button + resize grip */
+.ptitle { min-height: 16px; }
+.ptitle-text { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #7a8698; }
+.collapse-btn {
+  position: absolute; top: 4px; right: 4px; z-index: 2;
+  padding: 0 7px; font-size: 12px; line-height: 1.5; border-radius: 6px; min-width: 22px;
+}
+.panel.collapsed:not(#rightPanel) > *:not(.collapse-btn):not(.ptitle) { display: none !important; }
+.panel.collapsed { resize: horizontal; height: auto !important; min-height: 0 !important; }
+
+/* right-hand tab stack */
+.tabhost { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.tabhost .tab { display: none; flex: 1; min-height: 0; overflow: auto; }
+.tabhost .tab.active { display: flex; flex-direction: column; gap: 6px; }
+#rightPanel.collapsed { height: auto; bottom: auto; }
+#rightPanel.collapsed .tabhost { display: none; }
+
+/* hardware / devices */
+#devices { display: flex; flex-direction: column; gap: 6px; }
+.dev { background: #1b212c; border: 1px solid #2c3442; border-radius: 8px; padding: 6px 8px; }
+.dev .head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+.dev .type { color: #7a8698; font-weight: 400; font-size: 11px; }
+.dev .badge { font-size: 10px; background: #4d4a17; color: #ffe58a; padding: 1px 5px; border-radius: 4px; }
+.dev .vals { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: #c9d1e3; }
+.dev .vals span b { color: #7a8698; font-weight: 400; }
+.dev .inputs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; align-items: center; }
+.dev .inputs label { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; }
+.dev .inputs input[type=range] { width: 100px; }
+.dev .bar { height: 4px; background: #2a3140; border-radius: 2px; margin-top: 4px; position: relative; }
+.dev .bar i { position: absolute; top: 0; bottom: 0; background: #4f8cff; border-radius: 2px; }
+.hubhead { color: #7a8698; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin: 6px 0 2px; }
+
+/* configurables */
+#configurables .cls { margin-bottom: 8px; }
+#configurables .cls h3 { margin: 6px 0 4px; font-size: 12.5px; color: #4f8cff; }
+#configurables .row { display: grid; grid-template-columns: 1fr 130px; gap: 6px; align-items: center; padding: 2px 0; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+#configurables .row input, #configurables .row select { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; padding: 2px 4px; }
+#configurables .row.ro { color: #7a8698; }
+
+/* graph */
+#graph { width: 100%; background: #0b0e13; border: 1px solid #262d3a; border-radius: 6px; }
+#graphLegend { display: flex; flex-wrap: wrap; gap: 8px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; margin-top: 4px; }
+
+/* log */
+.log { margin: 0; flex: 1; min-height: 80px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; white-space: pre-wrap; background: #0b0e13; border: 1px solid #262d3a; border-radius: 6px; padding: 6px; overflow: auto; }
+.log .W { color: #ffe58a; } .log .E { color: #ff9b93; } .log .D, .log .V { color: #7a8698; }
+.log-toolbar { display: flex; gap: 6px; align-items: center; }
+.log-toolbar input { flex: 1; min-width: 60px; background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px; padding: 3px 6px; font-size: 11.5px; }
+.log-toolbar select { background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px; padding: 3px 6px; font-size: 11.5px; }
+#tab-robot textarea, #configText { width: 100%; flex: 1; min-height: 140px; background: #0b0e13; color: #cfe3cf; border: 1px solid #262d3a; border-radius: 6px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; padding: 6px; resize: none; }
+#buildDiag { max-height: 110px; flex: none; }
+
+/* warn box */
+.warnbox { background: #3a3212; border: 1px solid #f1c40f; color: #ffe58a; padding: 6px 8px; border-radius: 7px; font-size: 11.5px; }
+
+/* pose controls */
+#posePanel input[type=number] {
+  width: 58px; background: #262d3a; color: #cfd6e2; border: 1px solid #39424f;
+  border-radius: 6px; padding: 3px 5px; font-size: 12px;
+}
+#posePanel #frameSelect { background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+
+/* virtual gamepads (ported from the 2D front end) */
+#padsPanel { padding: 8px 10px; }
+.gamepads { display: flex; gap: 12px; align-items: stretch; }
+.gamepad {
+  flex: 1; min-width: 0; background: #1b212c; border: 1px solid #2c3442; border-radius: 10px;
+  padding: 6px 10px 16px; display: grid; grid-template-columns: 78px 1fr 78px;
+  grid-template-rows: auto auto 1fr; gap: 4px 10px;
+}
+.gamepad .title { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; font-weight: 600; font-size: 12px; }
+.gamepad > .src { grid-column: 1 / -1; color: #7a8698; font-weight: 400; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gamepad .title select { font-size: 11px; padding: 2px 4px; background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px; max-width: 160px; }
+.gamepad .rumbleInd { display: none; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #ffd166; }
+.gamepad.rumbling { border-color: #f1c40f; }
+.gamepad.rumbling .rumbleInd { display: inline; }
+.stick { width: 78px; height: 78px; border-radius: 50%; background: #10141b; border: 1px solid #2c3442; position: relative; touch-action: none; }
+.stick .knob { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #4f8cff; left: 25px; top: 25px; box-shadow: 0 0 0 2px #0b0e13; pointer-events: none; }
+.stick .lab { position: absolute; bottom: -15px; left: 0; right: 0; text-align: center; font-size: 10px; color: #7a8698; }
+.stick.active .knob { background: #7fb0ff; }
+.gamepad .mid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; align-content: start; }
+.gamepad .btn { background: #10141b; border: 1px solid #2c3442; border-radius: 6px; text-align: center; padding: 3px 0; font-size: 10.5px; user-select: none; cursor: pointer; color: #cfd6e2; }
+.gamepad .btn.on { background: #4f8cff; color: #fff; border-color: #7fb0ff; }
+.gamepad .trig { grid-column: span 3; display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: #cfd6e2; }
+.gamepad .trig input { flex: 1; }
+
+.tabs { display: flex; gap: 6px; flex: 1; }
+.tabs button { padding: 3px 8px; font-size: 11px; white-space: nowrap; }
+.tellines {
+  margin: 0; flex: 1; min-height: 90px; max-height: 38vh; overflow: auto;
+  background: #0b0e13; border: 1px solid #262d3a; border-radius: 7px;
+  padding: 6px 8px; color: #cfe3cf; font-family: ui-monospace, Consolas, monospace;
+  font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word;
+}
+
+#opmodeSelect {
+  flex: 1; min-width: 220px; background: #262d3a; color: #cfd6e2;
+  border: 1px solid #39424f; border-radius: 7px; padding: 4px 8px; font-size: 12.5px;
+}
+button.primary { background: #2b4a7a; border-color: #4f8cff; color: #fff; }
+button.go { background: #1d3a26; border-color: #2e7d4f; color: #7ee2a0; }
+button.stop { background: #3a1d1d; border-color: #7d2e2e; color: #ff8f8f; }
+button:disabled { opacity: 0.4; cursor: default; }
+.errorbox {
+  margin: 0; max-width: 380px; max-height: 120px; overflow: auto;
+  background: #2a1212; border: 1px solid #7d2e2e; border-radius: 7px;
+  color: #ff9f9f; font-family: ui-monospace, Consolas, monospace; font-size: 11px; padding: 6px 8px;
+}
+
+.gprow { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.gplabel { font-size: 11px; font-weight: 700; color: #8fb8ff; }
+.gpsrc { font-size: 11px; color: #7a8698; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gprumble { font-size: 10px; padding: 1px 6px; border-radius: 999px; background: #4a3b16; color: #ffd166; }
+.gpphys {
+  background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px;
+  padding: 2px 6px; font-size: 11px; max-width: 180px;
+}
+
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand { font-weight: 700; font-size: 15px; letter-spacing: 0.4px; }
+.brand span { color: #4f8cff; }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #b8c2d0; }
+.hint { font-size: 11px; color: #7a8698; }
+
+.pill {
+  padding: 2px 9px; border-radius: 999px; font-size: 11.5px;
+  background: #262d3a; color: #cfd6e2; white-space: nowrap;
+}
+.pill.ok { background: #1d3a26; color: #7ee2a0; }
+.pill.bad { background: #3a1d1d; color: #ff8f8f; }
+.pill.warn { background: #4a3b16; color: #ffd166; }
+.pill.busy { background: #4a3b16; color: #ffd166; animation: pillpulse 1.2s ease-in-out infinite; }
+@keyframes pillpulse { 50% { opacity: 0.55; } }
+button.attention {
+  border-color: #f1c40f; color: #ffd166;
+  box-shadow: 0 0 8px rgba(241, 196, 15, 0.45);
+  animation: pillpulse 1.2s ease-in-out infinite;
+}
+.pill.wide { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.hidden { display: none !important; }
+
+button {
+  background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 7px;
+  padding: 4px 12px; font-size: 12px; cursor: pointer;
+}
+button:hover { background: #313a4a; }
+button.active { background: #2b4a7a; border-color: #4f8cff; color: #fff; }
+
+.chk { font-size: 12px; color: #cfd6e2; display: flex; align-items: center; gap: 4px; }
+.chkrow { font-size: 12px; }
+button.mini { padding: 2px 8px; font-size: 11.5px; line-height: 1.5; }
+
+#fieldOptions label { font-size: 11.5px; color: #b8c2d0; display: flex; align-items: center; gap: 4px; }
+/* field-event controls ride on the title row to save vertical space */
+#fieldEventPanel .ptitle { padding-right: 34px; }
+.fe-inline { flex: 1; min-width: 0; flex-wrap: wrap; }
+.fe-inline label { white-space: nowrap; }
+.panel.collapsed #fieldOptions { display: none !important; }
+#fieldOptions select {
+  background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px;
+  padding: 2px 6px; font-size: 11.5px;
+}
+
+#toasts { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; pointer-events: none; align-items: center; z-index: 5; }
+.toast {
+  background: rgba(30, 36, 46, 0.95); border: 1px solid #39424f; border-left: 3px solid #4f8cff;
+  border-radius: 8px; padding: 8px 14px; font-size: 12.5px; color: #e8ebf0; max-width: 380px;
+}
+.toast.error { border-left-color: #e74c3c; }
+.toast.warn { border-left-color: #ffd166; }

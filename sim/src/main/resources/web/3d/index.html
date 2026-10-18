@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FTCSim 3D</title>
+<link rel="stylesheet" href="style.css?v=20261016b">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="hud">
+  <!-- pinned full-width nav bar: all the summary info in one strip -->
+  <div class="panel" id="topBar">
+    <div class="row">
+      <span class="brand">FTC<span>Sim</span> 3D</span>
+      <span class="mono meta" id="repoMeta">connecting…</span>
+      <span class="sep"></span>
+      <span class="pill wide" id="fieldPill">field</span>
+      <span class="pill wide" id="statePill">IDLE</span>
+      <span class="mono" id="runtime">0.0 s</span>
+      <span class="spacer"></span>
+      <span class="pill" id="buildPill" title="Team code build status">build</span>
+      <button id="reloadBtn" class="mini" title="Recompile the team code (R)">⟳ Reload code</button>
+      <span class="pill" id="batteryPill">12.8 V</span>
+      <span class="pill" id="simPill" title="Physics step rate">1000 Hz</span>
+      <button id="pauseBtn" title="Freeze the world and the robot code (robot code stops at its next hardware call)">⏸ Pause</button>
+      <button id="stepBtn" title="While paused, run one slice of simulated time">⏭ Step</button>
+      <select id="stepSize" title="How much simulated time one step runs"><option value="1">1 ms</option><option value="5">5 ms</option><option value="20" selected>20 ms</option><option value="100">100 ms</option></select>
+      <span class="pill" id="fpsPill" title="Rendered frames per second">– fps</span>
+      <span class="pill" id="ioPill" title="Hub transactions made by the robot code since INIT, and the time they cost it">I/O</span>
+      <span class="pill warn hidden" id="pausedPill">PAUSED</span>
+      <span class="pill" id="connPill">connecting…</span>
+    </div>
+    <div id="warnBox" class="warnbox hidden"></div>
+  </div>
+
+  <!-- bottom-left: what the robot's own AprilTag camera sees -->
+  <div class="panel" id="camPanel">
+    <div class="row ptitle">
+      <span class="ptitle-text">Robot camera</span>
+      <span class="mono" id="camFps"></span>
+    </div>
+    <button class="collapse-btn" title="Collapse / expand">–</button>
+    <div class="camwrap">
+      <canvas id="camCanvas"></canvas>
+      <canvas id="camOverlay"></canvas>
+      <span class="camhint" id="camHint">(waiting for the field…)</span>
+    </div>
+    <div class="row camctl">
+      <label class="chk" for="camPitch">Pitch</label>
+      <input id="camPitch" type="range" min="-30" max="80" step="1" value="35" title="Camera tilt: negative looks down, positive looks up (aim up at the HIVE tags)">
+      <span class="mono camdeg" id="camPitchVal">+35°</span>
+      <button id="camSyncBtn" class="mini" title="Re-sync the view to the team code's Webcam mount and show the tags it detects">⟳</button>
+      <button id="camHideBtn" class="mini" title="Hide the camera view">Hide</button>
+    </div>
+    <div class="camstatus" id="camStatus">waiting for a Webcam…</div>
+  </div>
+
+  <!-- left column: driver station + telemetry merged into one panel -->
+  <div class="panel" id="dsPanel">
+    <div class="row ptitle"><span class="ptitle-text">Driver Station · Telemetry</span></div>
+    <button class="collapse-btn" title="Collapse / expand">–</button>
+    <div class="row">
+      <select id="opmodeSelect"><option>(no OpModes found yet)</option></select>
+    </div>
+    <div class="row">
+      <button id="initBtn" class="primary">INIT</button>
+      <button id="startBtn" class="go">▶ START</button>
+      <button id="stopBtn" class="stop">■ STOP</button>
+      <button id="restartBtn" class="stop hidden">Restart Robot</button>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="timerChk"> Match timer</label>
+      <span id="timerRemaining" class="mono"></span>
+    </div>
+    <pre id="errorBox" class="errorbox hidden"></pre>
+    <div class="pdivider"></div>
+    <div class="row">
+      <div class="tabs" id="telTabs">
+        <button data-tab="ds" class="active">Telemetry</button>
+        <button data-tab="panels">Panels</button>
+        <button data-tab="dashboard">Dashboard</button>
+      </div>
+      <span class="pill" id="telCount">0 lines</span>
+    </div>
+    <pre id="telLines" class="tellines">waiting for telemetry…</pre>
+  </div>
+
+  <!-- centre column: pose + view controls, with the field-event panel underneath -->
+  <div id="centerCol">
+    <!-- pose readout + set-pose controls + 3D view controls (as in the 2D UI) -->
+    <div class="panel" id="posePanel" title="drag robot to move · shift/right-drag robot to rotate · shift+wheel over robot: ±5° · elsewhere: orbit/zoom/pan">
+      <div class="row ptitle"><span class="ptitle-text">Pose · View</span></div>
+      <button class="collapse-btn" title="Collapse / expand">–</button>
+      <!-- left/right split: pose (left) | view (right) -->
+      <div class="pvsplit">
+        <div class="pvcol pvpose">
+          <div class="row">
+            <label class="chk">Frame <select id="frameSelect"><option value="ftc">FTC</option><option value="pedro">Pedro</option></select></label>
+            <input id="poseX" type="number" step="0.5" placeholder="x" title="x (in) — live pose, type to set">
+            <input id="poseY" type="number" step="0.5" placeholder="y" title="y (in) — live pose, type to set">
+            <input id="poseH" type="number" step="5" placeholder="θ°" title="heading (deg) — live pose, type to set">
+            <button id="setPoseBtn" class="mini">Set pose</button>
+            <button id="saveStartBtn" class="mini" title="Use the current pose as the start pose">Save as start</button>
+            <button id="resetPoseBtn" class="mini" title="Move the robot back to the start pose">Reset</button>
+          </div>
+        </div>
+        <div class="pvsep"></div>
+        <div class="pvcol pvview">
+          <div class="row">
+            <button id="camOrbit" class="active">Orbit</button>
+            <button id="camChase">Chase</button>
+            <button id="camTop">Top</button>
+            <button id="padsToggle" class="mini" title="Show / hide the virtual gamepads">Pads</button>
+            <button id="camToggle" class="mini active" title="Show / hide the robot camera view in the bottom-left corner">Cam</button>
+            <label class="chk"><input type="checkbox" id="trailChk" checked> Trail</label>
+            <label class="chk"><input type="checkbox" id="labelsChk" checked> Labels</label>
+            <label class="chk" title="FTC Dashboard / Panels field drawings (Road Runner planned path…). Drawings stick until a new OpMode loads or you clear them."><input type="checkbox" id="overlayChk" checked> Overlay</label>
+            <button id="overlayClearBtn" class="mini" title="Clear the field drawings now">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- field event: which CELL/HIVE faces up for each alliance (controls sit inline with the title to save height) -->
+    <div class="panel" id="fieldEventPanel">
+      <div class="row ptitle">
+        <span class="ptitle-text">Field Event</span>
+        <div class="row fe-inline" id="fieldOptions"></div>
+      </div>
+      <button class="collapse-btn" title="Collapse / expand">–</button>
+    </div>
+  </div>
+
+  <!-- right-hand tab stack (as in the 2D UI) -->
+  <div class="panel" id="rightPanel">
+    <div class="row">
+      <div class="tabs" id="rightTabs">
+        <button data-tab="hardware" class="active">Hardware</button>
+        <button data-tab="config">Configurables</button>
+        <button data-tab="graph">Graph</button>
+        <button data-tab="log">Log</button>
+        <button data-tab="robot">Robot config</button>
+      </div>
+      <button id="rightToggle" class="mini" title="Collapse / expand this panel">–</button>
+    </div>
+    <div class="tabhost" id="rightBody">
+      <div id="tab-hardware" class="tab active"><div id="devices"></div></div>
+      <div id="tab-config" class="tab"><div id="configurables"><p class="hint">Classes annotated with <code>@Configurable</code> (Panels) or <code>@Config</code> (FTC Dashboard) appear here once the team code is built.</p></div></div>
+      <div id="tab-graph" class="tab"><canvas id="graph" width="380" height="220"></canvas><div id="graphLegend"></div></div>
+      <div id="tab-log" class="tab">
+        <div class="log-toolbar">
+          <select id="logLevel"><option value="0">verbose</option><option value="1">debug</option><option value="2" selected>info</option><option value="3">warn</option><option value="4">error</option></select>
+          <input id="logFilter" placeholder="filter…">
+          <button id="logClear" class="mini">clear</button>
+        </div>
+        <pre id="log" class="log"></pre>
+      </div>
+      <div id="tab-robot" class="tab">
+        <p class="hint">Robot configuration JSON (<span id="configFile"></span>). Devices used by the team code that are missing here are auto-created. Save then restart FTCSim to apply.</p>
+        <textarea id="configText" spellcheck="false"></textarea>
+        <div class="row">
+          <button id="configLoadBtn">Load</button>
+          <button id="configSaveBtn" class="primary">Save</button>
+          <button id="configSaveCurrentBtn" title="Write the live configuration including auto-created devices">Save current</button>
+        </div>
+        <pre id="buildDiag" class="log"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- bottom-centre full-width: virtual gamepads (as in the 2D UI) -->
+  <div class="panel hidden" id="padsPanel">
+    <div class="row ptitle"><span class="ptitle-text">Gamepads</span></div>
+    <button class="collapse-btn" title="Collapse / expand">–</button>
+    <div class="gamepads">
+      <div class="gamepad" id="gp1" data-id="1"></div>
+      <div class="gamepad" id="gp2" data-id="2"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+<script type="module" src="main.js?v=20261016b"></script>
+</body>
+</html>
