@@ -228,7 +228,11 @@ public final class WebServer {
                 if (r != null) return r;
             }
         }
-        if ("/".equals(path)) path = "/index.html";
+        // The 3D view is the front door; the 2D view lives under /2d/. Both directories ship their
+        // own index.html, so a bare directory request resolves the same way a file request does.
+        if ("/".equals(path)) path = "/3d/index.html";
+        else if ("/2d".equals(path) || "/2d/".equals(path)) path = "/2d/index.html";
+        else if ("/3d".equals(path) || "/3d/".equals(path)) path = "/3d/index.html";
         if (path.contains("..")) return Response.text(403, "forbidden");
         byte[] data = null;
         if (overrideDir != null) {
