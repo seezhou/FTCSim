@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotorImplEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.MotorConfigurationType;
 import ftcsim.physics.MotorState;
+import ftcsim.vision.DeviceMount;
 
 import java.util.Map;
 
@@ -13,16 +14,24 @@ public class SimDcMotor extends DcMotorImplEx implements SimDevice {
     private final MotorState state;
     private final String name;
     private final boolean assumeDirectionsCorrect;
+    private final DeviceMount mount;
 
     public SimDcMotor(SimMotorController controller, int port, MotorConfigurationType type, MotorState state, String name, boolean assumeDirectionsCorrect) {
+        this(controller, port, type, state, name, assumeDirectionsCorrect, null);
+    }
+
+    public SimDcMotor(SimMotorController controller, int port, MotorConfigurationType type, MotorState state, String name, boolean assumeDirectionsCorrect, DeviceMount mount) {
         super(controller, port, DcMotorSimple.Direction.FORWARD, type);
         this.simController = controller;
         this.state = state;
         this.name = name;
         this.assumeDirectionsCorrect = assumeDirectionsCorrect;
+        this.mount = mount;
     }
 
     public MotorState state() { return state; }
+
+    @Override public DeviceMount simMount() { return mount; }
 
     @Override public synchronized void setDirection(DcMotorSimple.Direction direction) {
         super.setDirection(direction);

@@ -239,7 +239,13 @@ public final class SimHardware {
         h.motors.attach(port, st, mct);
         world.motors.add(st);
         motorStates.put(spec.name, st);
-        return new SimDcMotor(h.motors, port, mct, st, spec.name, config.assumeTeamDirectionsCorrect);
+        // A drive wheel's axle runs across the chassis (robot +z); a mechanism motor's axis is
+        // whatever the configuration says. Defaulting to the config value rather than guessing
+        // keeps "turns about what I declared" true even when the declaration is wrong — visible
+        // and fixable, instead of silently wrong.
+        String axis = st.isDriveWheel ? "z" : spec.str("axis", "x");
+        return new SimDcMotor(h.motors, port, mct, st, spec.name, config.assumeTeamDirectionsCorrect,
+                ftcsim.vision.DeviceMount.fromSpec(spec, axis));
     }
 
     private HardwareDevice createServo(RobotConfig.Device spec, boolean continuous) {
@@ -253,7 +259,12 @@ public final class SimHardware {
         h.servos.attach(port, st);
         world.servos.add(st);
         servoStates.put(spec.name, st);
-        return continuous ? new SimCRServo(h.servos, port, st, spec.name) : new SimServo(h.servos, port, st, spec.name);
+        // Servos sweep, so the default axis is pitch (robot +z) and a mount without explicit
+        // minDeg/maxDeg is a plain servo parked at one angle.
+        ftcsim.vision.DeviceMount mount = ftcsim.vision.DeviceMount.fromSpec(spec, "z");
+        return continuous
+                ? new SimCRServo(h.servos, port, st, spec.name, mount)
+                : new SimServo(h.servos, port, st, spec.name, mount);
     }
 
     private HardwareDevice createAnalog(RobotConfig.Device spec) {
@@ -534,10 +545,21 @@ public final class SimHardware {
         return null;
     }
 
-    public Map<String, String> drivetrainAssignment() {
-        Map<String, String> m = new LinkedHashMap<>();
+    /**
+     * The drivetrain as the UI needs it: which motor fills which role, plus the geometry the 3D view
+     * needs to place the wheels. Values are typed rather than all strings, so the web view receives
+     * JSON numbers and can use them without parsing.
+     */
+    public Map<String, Object> drivetrainAssignment() {
+        Map<String, Object> m = new LinkedHashMap<>();
         Chassis c = world.chassis;
         m.put("type", c.driveType.name().toLowerCase());
+        // Geometry travels with the names so the 3D view can place the wheels where the team
+        // actually built them instead of guessing offsets from the chassis box.
+        RobotConfig.Drivetrain d = config.drivetrain;
+        m.put("wheelDiameterIn", d.wheelDiameterIn);
+        m.put("trackWidthIn", d.trackWidthIn);
+        m.put("wheelBaseIn", d.wheelBaseIn);
         if (c.driveType == Chassis.DriveType.MECANUM) {
             m.put("leftFront", c.leftFront == null ? null : c.leftFront.name);
             m.put("rightFront", c.rightFront == null ? null : c.rightFront.name);
@@ -610,6 +632,11 @@ public final class SimHardware {
             v.put("port", d.simPort());
             RobotConfig.Device spec = config.findDevice(d.simName());
             v.put("autoCreated", spec != null && spec.autoCreated);
+            // Declared pose, sent next to the live values so the 3D view can place the part on the
+            // same message it uses to animate it — no second round trip, no frame where the part
+            // moves but is still drawn at the origin.
+            ftcsim.vision.DeviceMount mount = d.simMount();
+            if (mount != null) v.put("mount", mount.toView());
             Map<String, Object> values = new LinkedHashMap<>();
             try { d.fillView(values); } catch (RuntimeException e) { values.put("error", e.toString()); }
             v.put("values", values);

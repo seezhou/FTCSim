@@ -52,43 +52,34 @@
     {
       "name": "frontLeft",
       "type": "DcMotorEx",
-      "hub": "Control Hub",
-      "port": 0,
-      "motorType": "goBILDA_435"
+      "hub": "Control Hub", "port": 0,
+      "params": { "motorType": "goBILDA_435" }
     },
     {
       "name": "frontRight",
       "type": "DcMotorEx",
-      "hub": "Control Hub",
-      "port": 1,
-      "motorType": "goBILDA_435"
+      "hub": "Control Hub", "port": 1,
+      "params": { "motorType": "goBILDA_435" }
     },
     {
       "name": "backLeft",
       "type": "DcMotorEx",
-      "hub": "Control Hub",
-      "port": 2,
-      "motorType": "goBILDA_435"
+      "hub": "Control Hub", "port": 2,
+      "params": { "motorType": "goBILDA_435" }
     },
     {
       "name": "backRight",
       "type": "DcMotorEx",
-      "hub": "Control Hub",
-      "port": 3,
-      "motorType": "goBILDA_435"
+      "hub": "Control Hub", "port": 3,
+      "params": { "motorType": "goBILDA_435" }
     },
     {
       "name": "odo",
       "type": "GoBildaPinpointDriver",
-      "hub": "Control Hub",
-      "port": 1,
-      "xPod": {
-        "offsetIn": 5.5625,
-        "ticksPerMm": 13.26291192
-      },
-      "yPod": {
-        "offsetIn": -5.28,
-        "ticksPerMm": 13.26291192
+      "hub": "Control Hub", "port": 1,
+      "params": {
+        "xPod": { "offsetIn": 5.5625, "ticksPerMm": 13.26291192 },
+        "yPod": { "offsetIn": -5.28, "ticksPerMm": 13.26291192 }
       }
     },
     {
@@ -100,18 +91,11 @@
     {
       "name": "limelight",
       "type": "Limelight3A",
-      "hub": "Control Hub",
-      "port": 0,
-      "mount": {
-        "x": 6.0,
-        "y": 0.0,
-        "z": 12.0,
-        "yawDeg": 0.0,
-        "pitchDeg": 25.0
-      },
-      "hfovDeg": 54.5,
-      "vfovDeg": 42,
-      "maxRangeIn": 160
+      "hub": "Control Hub", "port": 0,
+      "params": {
+        "mount": { "x": 6.0, "y": 0.0, "z": 12.0, "yawDeg": 0.0, "pitchDeg": 25.0 },
+        "hfovDeg": 54.5, "vfovDeg": 42, "maxRangeIn": 160
+      }
     }
   ]
 }

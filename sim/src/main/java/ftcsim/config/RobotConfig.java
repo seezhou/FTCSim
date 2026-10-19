@@ -23,6 +23,10 @@ public class RobotConfig {
     public String notes = "";
     public double lengthIn = 18;
     public double widthIn = 18;
+    /** Height of the chassis box, inches. The 3D view draws the frame at this height so a tall robot reads as one. */
+    public double heightIn = 6;
+    /** How opaque the chassis is drawn, 0..1. Low enough to see mechanisms inside the frame. */
+    public double chassisOpacity = 0.22;
     public double massKg = 12;
     public double batteryVolts = 12.8;
     public double batteryResistanceOhms = 0.06;

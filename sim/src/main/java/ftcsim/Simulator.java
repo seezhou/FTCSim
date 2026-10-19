@@ -308,6 +308,21 @@ public final class Simulator {
     }
 
     // ------------------------------------------------------------------ broadcasting
+    /**
+     * The robot's declared shape, as the 3D view needs it. Height and chassis opacity live here too:
+     * a translucent body whose height cannot be set from the configuration would be a drawing
+     * trick, and the team should tune it the way they tune everything else.
+     */
+    private Map<String, Object> robotSpecMessage() {
+        Map<String, Object> robot = new LinkedHashMap<>();
+        robot.put("lengthIn", config.lengthIn);
+        robot.put("widthIn", config.widthIn);
+        robot.put("heightIn", config.heightIn);
+        robot.put("chassisOpacity", config.chassisOpacity);
+        robot.put("drivetrain", hardware.drivetrainAssignment());
+        return robot;
+    }
+
     private void sendHello(WebServer.Client client) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("type", "hello");
@@ -317,7 +332,7 @@ public final class Simulator {
         m.put("configName", config.name);
         m.put("configFile", configFile.getAbsolutePath());
         m.put("field", fieldMessage());
-        m.put("robot", Map.of("lengthIn", config.lengthIn, "widthIn", config.widthIn, "drivetrain", hardware.drivetrainAssignment()));
+        m.put("robot", robotSpecMessage());
         m.put("startPose", config.startPose);
         client.send(gson.toJson(m));
         client.send(gson.toJson(opModesMessage()));

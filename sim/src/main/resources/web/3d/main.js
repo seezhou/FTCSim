@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createField } from './field.js?v=20261016b';
-import { Robot } from './robot.js?v=20261016b';
+import { Robot } from './robot.js?v=20261018h';
 import { startGamepads } from './gamepad.js?v=20261016b';
 import { startRobotDrag } from './drag.js?v=20261016b';
 import { createOverlay } from './overlay.js?v=20261016b';
@@ -454,6 +454,10 @@ let camMountSig = '';
 function syncCameraTeam(devices) {
   if (!devices) return;
   lastDevices = devices;
+  // Declared motor/servo mounts ride on the same message: the set may change when the config is
+  // reloaded, the live values change every frame. Parts without a mount are never drawn.
+  robot.setDevices(devices);
+  robot.setDeviceValues(devices);
   const m = parseMount(devices);
   const sig = m ? JSON.stringify(m) : '';
   if (sig !== camMountSig) {
@@ -517,7 +521,7 @@ const gamepads = startGamepads({ send, toast, host1: $('gp1'), host2: $('gp2') }
 const panels = createPanels({ send, toast });
 startRobotDrag({ canvas, camera, robot, send });
 // debug/testing handle (harmless in production)
-window.__sim3d = { canvas, camera, controls, robot, overlay, field, panels, webcam };
+window.__sim3d = { canvas, camera, controls, robot, overlay, field, panels, webcam, scene };
 
 connect();
 animate();

@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.hardware.configuration.typecontainers.ServoConfigurationType;
 import ftcsim.physics.ServoState;
+import ftcsim.vision.DeviceMount;
 
 import java.util.Map;
 
@@ -12,12 +13,18 @@ public class SimServo extends ServoImplEx implements SimDevice {
     private final SimServoController simController;
     private final ServoState state;
     private final String name;
+    private final DeviceMount mount;
 
     public SimServo(SimServoController controller, int port, ServoState state, String name) {
+        this(controller, port, state, name, null);
+    }
+
+    public SimServo(SimServoController controller, int port, ServoState state, String name, DeviceMount mount) {
         super(controller, port, Servo.Direction.FORWARD, servoType());
         this.simController = controller;
         this.state = state;
         this.name = name;
+        this.mount = mount;
     }
 
     static ServoConfigurationType servoType() {
@@ -25,6 +32,7 @@ public class SimServo extends ServoImplEx implements SimDevice {
     }
 
     public ServoState state() { return state; }
+    @Override public DeviceMount simMount() { return mount; }
     @Override public String getDeviceName() { return "Servo"; }
     @Override public String getConnectionInfo() { return simController.hub().getName() + "; port " + getPortNumber(); }
     @Override public String simName() { return name; }

@@ -4,6 +4,8 @@
   "notes": "motor names match the Robot/subsystem classes.",
   "lengthIn": 18,
   "widthIn": 17,
+  "heightIn": 12.0,
+  "chassisOpacity": 0.28,
   "massKg": 13.29,
   "batteryVolts": 12.8,
   "batteryResistanceOhms": 0.06,
@@ -12,6 +14,13 @@
   "autoCreateDevices": true,
   "snapToCodePose": false,
   "startPose": { "x": 0.0, "y": 0.0, "headingDeg": 180.0 },
+  "drivetrain": {
+    "type": "mecanum",
+    "wheelDiameterIn": 4.094, "trackWidthIn": 13.5, "wheelBaseIn": 11.0,
+    "motorType": "goBILDA_435", "tractionCoefficient": 0.8,
+    "leftFront": "leftFront", "rightFront": "rightFront",
+    "leftRear": "leftBack", "rightRear": "rightBack"
+  },
   "hubs": [
     { "name": "Control Hub", "address": 173, "parent": true },
     { "name": "Expansion Hub", "address": 129, "parent": false }
@@ -42,19 +51,23 @@
     },
     {
       "name": "launchLeft", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 0,
-      "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004}
+      "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004,
+        "mount": {"x": -6.5, "y": 7.6, "z": 8.0, "axis": "z", "shape": "cylinder", "diameterIn": 1.4, "lengthIn": 2.2}}
     },
     {
       "name": "launchRight", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 1,
-      "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004}
+      "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004,
+        "mount": {"x": -6.5, "y": -7.6, "z": 8.0, "axis": "z", "shape": "cylinder", "diameterIn": 1.4, "lengthIn": 2.2}}
     },
     {
       "name": "leftServo", "type": "Servo", "hub": "Expansion Hub", "port": 2,
-      "params": {"secondsFullRange": 0.3}
+      "params": {"secondsFullRange": 0.3,
+        "mount": {"x": -8.0, "y": 5.0, "z": 6.2, "axis": "z", "shape": "box", "minDeg": 0, "maxDeg": 90}}
     },
     {
       "name": "rightServo", "type": "Servo", "hub": "Expansion Hub", "port": 3,
-      "params": {"secondsFullRange": 0.3}
+      "params": {"secondsFullRange": 0.3,
+        "mount": {"x": -8.0, "y": -5.0, "z": 6.2, "axis": "z", "shape": "box", "minDeg": 0, "maxDeg": 90}}
     }
   ]
 }

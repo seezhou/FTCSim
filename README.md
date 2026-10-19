@@ -92,6 +92,39 @@ fiducial positions and camera mount the backend uses for its own results, so you
 angles and IDs against what the program actually receives. A pitch slider takes over when no mount is
 configured, and the status line says which of the two is in use.
 
+### Mechanisms you declare in the configuration show up in 3D
+
+A motor or servo that the robot configuration gives a `mount` to is drawn on the robot at that pose
+and animated from the same 20 Hz device values the rest of the UI reads. A launcher flywheel spins
+with its motor, an intake finger sweeps across its declared travel:
+
+```json
+{ "name": "launchLeft", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 0,
+  "params": {
+    "mount": { "x": -6.5, "y": 7.6, "z": 8.0, "axis": "z", "shape": "cylinder" }
+  } }
+{ "name": "leftServo", "type": "Servo", "hub": "Expansion Hub", "port": 2,
+  "params": {
+    "mount": { "x": -8.0, "y": 5.0, "z": 6.2, "axis": "z", "shape": "box", "minDeg": 0, "maxDeg": 90 }
+  } }
+```
+
+Robot frame: inches, `x` forward, `y` left, `z` up. `axis` is the robot axis the part turns about
+(`z` for a wheel axle or an arm sweep, `x` for a roller). `minDeg`/`maxDeg` map a servo's 0..1
+position onto its travel; leave them out and it is treated as a motor. `parent` nests a part under
+another so it moves with it. **A device with no `mount` is not drawn** — absence is a statement,
+and guessing a position would be worse than showing nothing.
+
+Colour follows activity, the way the 2D view's power bars do: motors go green driving forward and
+red backward, with brightness carrying power, and stay dark grey at rest. Servos brighten along gold
+as they extend, because a servo's value is a position and colouring it red would wrongly imply it is
+driving in reverse.
+
+The chassis is translucent with an opaque outline, so mechanisms bolted inside the frame stay
+visible without the robot turning into an abstract smudge. Its height and opacity are configuration
+too (`heightIn`, `chassisOpacity`), as are the wheel positions, which now come from the `drivetrain`
+block instead of fixed offsets.
+
 ### Gamepad rumble on the bound controller
 
 `gamepad1.rumble(...)`, `rumbleBlips()` and `stopRumble()` used to be drained and dropped. They are
@@ -115,14 +148,29 @@ forwarded — the browser Gamepad API has no LED support.
   console and nothing in the server log. Each client now has its own writer thread behind a bounded
   queue: sending never blocks, a client that keeps dropping frames is disconnected, and closing a
   client shuts its socket down first, which is what releases a stuck writer.
+* **Device settings in the shipped configurations were silently ignored.** `RobotConfig.Device` reads
+  everything except `name`, `type`, `hub` and `port` out of a nested `params` object, but
+  `configs/Biobuzz.json` wrote `motorType`, `mount` and the Pinpoint `xPod`/`yPod` at the device
+  level, where Gson drops them without complaint. Every motor ran on the wrong characteristics and
+  the odometry pods used no offset at all. The same file also had no `drivetrain` block in
+  `configs/FtcRobotController.json`, so that robot ran on the default 3.78 in wheels and 14 × 12 in
+  geometry whatever it was actually built with.
 
 ## Tests
 
 ```bash
 ./gradlew test                                            # physics and hardware unit tests
+node tools/check-web.mjs                                 # parse the 3D ES modules
 node tools/wsclient.mjs 8000 BlueTeleOp 4                 # drive an OpMode over the WebSocket API
 node tools/run-all.mjs 8000 4                             # init/start/stop every OpMode
+node tools/verify-3d-probe.mjs                            # what the 3D page built, and where
 ```
+
+The `verify-*` scripts drive the real page in headless Chrome and assert on what it draws: the
+declared parts and their poses, the colour encoding, the chassis geometry, and the launcher firing
+end to end from the team's TeleOp. They locate Chrome through `$FTCSIM_CHROME` (or the platform
+default) and write screenshots to `build/`, so they need no npm install. Run them against a server
+already started with `./gradlew run`.
 
 ## Layout
 

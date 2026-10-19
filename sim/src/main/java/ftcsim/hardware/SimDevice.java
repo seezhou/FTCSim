@@ -1,5 +1,7 @@
 package ftcsim.hardware;
 
+import ftcsim.vision.DeviceMount;
+
 import java.util.Map;
 
 /** Implemented by every simulated device so the UI can show and manipulate it. */
@@ -9,6 +11,13 @@ public interface SimDevice {
     String simType();
     String simHub();
     int simPort();
+    /**
+     * Where this part sits on the robot, when the configuration declares it. Null means the
+     * device has no declared pose, which the 3D view treats as "do not draw this part" rather
+     * than parking it at the origin. Devices carry their own mount because the pose is a property
+     * of the physical part, not of whatever code happens to read its telemetry.
+     */
+    default DeviceMount simMount() { return null; }
     /** Adds live values (for display) to the map. */
     void fillView(Map<String, Object> view);
     /** Applies a value set from the UI (e.g. a sensor reading). Returns true if handled. */
