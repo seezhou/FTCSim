@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.util.RobotLog;
 import ftcsim.bridge.Configurables;
 import ftcsim.bridge.DashboardBridge;
 import ftcsim.config.RobotConfig;
+import ftcsim.hardware.LauncherController;
+import ftcsim.hardware.LauncherSpec;
 import ftcsim.hardware.SimHardware;
 import ftcsim.log.SimLog;
 import ftcsim.log.StdoutCapture;
@@ -58,6 +60,9 @@ public final class Simulator {
     private volatile long lastLogSeq;
     private volatile List<OpModeEntry> opModes = new ArrayList<>();
     private volatile long startedAt;
+    private LauncherController launcher;
+    /** Balls that have gone into a goal since the last INIT. */
+    private volatile int ballsScored;
 
     public Simulator(Options opts) { this.opts = opts; }
 
@@ -90,6 +95,8 @@ public final class Simulator {
         ftcsim.hardware.HardwareBus.configure(config.hardwareLatency.enabled, config.hardwareLatency.bulkReadMs,
             config.hardwareLatency.writeMs, config.hardwareLatency.readMs, config.hardwareLatency.i2cMs);
         hardware = new SimHardware(world, config, () -> world.field, () -> obeliskTag);
+        launcher = new LauncherController(world);
+        launcher.configure(LauncherSpec.from(config));
         runner = new SimOpModeRunner(hardware.hardwareMap, this::beforeInit, this::afterStop);
         hardware.snapAllowed = () -> runner.state() == SimOpModeRunner.State.INIT || runner.state() == SimOpModeRunner.State.IDLE;
         runner.addStateListener(s -> { if (s == SimOpModeRunner.State.RUNNING && matchTimerEnabled) armMatchTimer(); });
@@ -167,6 +174,11 @@ public final class Simulator {
             hardware.resetForOpMode();
             DashboardBridge.reset();
         });
+        // A new OpMode starts on a clean field: the balls from the last run go, the magazine is full
+        // again and the score starts over.
+        world.clearProjectiles();
+        if (launcher != null) launcher.reload();
+        ballsScored = 0;
         ftcsim.hardware.HardwareBus.resetCounters();
     }
 
@@ -207,7 +219,7 @@ public final class Simulator {
                 }
                 case "opmode.start": runner.start(); break;
                 case "opmode.stop": new Thread(runner::stop, "ftcsim-ui-stop").start(); break;
-                case "robot.restart": new Thread(() -> { runner.restartRobot(); hardware.resetForOpMode(); }, "ftcsim-ui-restart").start(); break;
+                case "robot.restart": new Thread(() -> { runner.restartRobot(); hardware.resetForOpMode(); world.clearProjectiles(); if (launcher != null) launcher.reload(); }, "ftcsim-ui-restart").start(); break;
                 case "sim.setPose": {
                     double x = num(msg.get("x"), 0), y = num(msg.get("y"), 0), h = num(msg.get("headingDeg"), 90);
                     world.chassis.setPose(new Pose2(Units.inToM(x), Units.inToM(y), Math.toRadians(h)));
@@ -255,11 +267,29 @@ public final class Simulator {
                     if (world.field.setOption(key, value)) {
                         obeliskTag = obeliskFrom(world.field);
                         RobotLog.ii(TAG, "Field option %s = %s", key, value);
-                        web.broadcast(gson.toJson(Map.of("type", "field", "field", fieldMessage())));
+                        broadcastField();
                     } else RobotLog.ww(TAG, "Unknown field option %s = %s", key, value);
                     break;
                 }
                 case "sim.timer": matchTimerEnabled = Boolean.TRUE.equals(msg.get("enabled")); if (matchTimerEnabled && runner.state() == SimOpModeRunner.State.RUNNING) armMatchTimer(); break;
+                case "sim.launch": {
+                    if (launcher == null || !launcher.enabled()) { toast(client, "warn", "No launcher in the robot configuration"); break; }
+                    double speed = launcher.fire();
+                    if (speed <= 0 && launcher.remaining() <= 0) toast(client, "warn", "Magazine empty — reload");
+                    break;
+                }
+                case "sim.launcherPitch": {
+                    if (launcher == null) break;
+                    Object deg = msg.get("deg");
+                    launcher.setPitchDeg(deg == null ? null : num(deg, 0));   // null: back to the configuration
+                    break;
+                }
+                case "sim.reload": {
+                    if (launcher == null || !launcher.enabled()) { toast(client, "warn", "No launcher in the robot configuration"); break; }
+                    launcher.reload();
+                    break;
+                }
+                case "sim.clearBalls": world.clearProjectiles(); break;
                 case "device.set": hardware.applyInput(String.valueOf(msg.get("name")), String.valueOf(msg.get("key")), msg.get("value")); break;
                 case "code.reload": if (teamCode != null) new Thread(teamCode::build, "ftcsim-rebuild").start(); break;
                 case "configurable.set": {
@@ -342,6 +372,11 @@ public final class Simulator {
     private static int obeliskFrom(Field field) {
         String v = field.option("obelisk");
         try { return v == null ? 21 : Integer.parseInt(v); } catch (NumberFormatException e) { return 21; }
+    }
+
+    /** Ships the whole field description again: the CELLs moved (a HIVE tipped) or an option changed. */
+    private void broadcastField() {
+        web.broadcast(gson.toJson(Map.of("type", "field", "field", fieldMessage())));
     }
 
     private Map<String, Object> fieldMessage() {
@@ -467,6 +502,8 @@ public final class Simulator {
         if (dd != null && System.currentTimeMillis() - dd.time < 3000) drawings.add(Map.of("source", dd.source, "frame", dd.frame, "ops", dd.ops));
         m.put("drawings", drawings);
         m.put("devices", hardware.deviceViews());
+        m.put("balls", ballsMessage());
+        m.put("launcher", launcherMessage());
         m.put("battery", Map.of("volts", world.battery.volts(), "current", world.battery.current()));
         Map<String, Object> sim = new LinkedHashMap<>();
         sim.put("paused", world.isPaused());
@@ -494,12 +531,97 @@ public final class Simulator {
         return m;
     }
 
+    /**
+     * Every ball on the field, in the field frame (inches, z up). Settled balls stay in the list:
+     * they are litter on the floor until the field is cleared.
+     */
+    private List<Map<String, Object>> ballsMessage() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Projectile p : world.projectiles) {
+            Map<String, Object> b = new LinkedHashMap<>();
+            b.put("id", p.id);
+            b.put("x", p.x); b.put("y", p.y); b.put("z", p.z);
+            b.put("r", p.radiusIn);
+            b.put("state", p.state.name());
+            if (p.scoredGoal != null) b.put("goal", p.scoredGoal);
+            if (p.capturedIn != null) b.put("cell", p.capturedIn);
+            out.add(b);
+        }
+        return out;
+    }
+
+    /** The magazine: whether a launcher is configured at all, and how many balls are left. */
+    private Map<String, Object> launcherMessage() {
+        Map<String, Object> l = new LinkedHashMap<>();
+        l.put("enabled", launcher != null && launcher.enabled());
+        l.put("remaining", launcher == null ? 0 : launcher.remaining());
+        l.put("capacity", launcher == null ? 0 : launcher.capacity());
+        l.put("pitchDeg", launcher == null ? 0 : launcher.pitchDeg());
+        double br = 3.0;
+        if (launcher != null && launcher.spec() != null) br = launcher.spec().ballRadiusIn;
+        l.put("ballRadiusIn", br);
+        l.put("scored", ballsScored);
+        l.put("captured", world.capturedCount());
+        int tips = 0;
+        for (int n : world.tipCounts.values()) tips += n;
+        l.put("tips", tips);
+        return l;
+    }
+
+    /** Ships goals the balls reached to the UI. The world only records them; the UI is told once. */
+    private void drainScores() {
+        if (web == null) return;
+        String goal;
+        while ((goal = world.scoreEvents.poll()) != null) {
+            ballsScored++;
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("type", "ball.score");
+            msg.put("goal", goal);
+            msg.put("total", ballsScored);
+            web.broadcast(gson.toJson(msg));
+            RobotLog.ii(TAG, "Ball scored in %s (%d total)", goal, ballsScored);
+        }
+    }
+
+    /** Ships HIVE tips to the UI: one message per tip, with the running count for that alliance. */
+    private void drainTips() {
+        if (web == null) return;
+        String alliance;
+        while ((alliance = world.tipEvents.poll()) != null) {
+            int tips = world.tipCounts.getOrDefault(alliance, 0);
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("type", "hive.tip");
+            msg.put("alliance", alliance);
+            msg.put("tips", tips);
+            msg.put("points", 20 * tips);
+            web.broadcast(gson.toJson(msg));
+            RobotLog.ii(TAG, "%s HIVE tipped (%d)", alliance, tips);
+        }
+    }
+
+    /** The robot drove over a ball: it is gone from the field and back in the magazine. */
+    private void drainPickups() {
+        Integer id;
+        while ((id = world.pickupEvents.poll()) != null) {
+            if (launcher != null) launcher.collect();
+            RobotLog.ii(TAG, "Ball %d picked up (%d in the magazine)", id, launcher == null ? -1 : launcher.remaining());
+        }
+    }
+
     private void broadcastLoop() {
         long next = System.nanoTime();
         int tick = 0;
         while (true) {
             try {
                 if (!web.clients().isEmpty()) {
+                    // 20 Hz is also the cadence at which the launcher watches the team's devices
+                    if (launcher != null) launcher.poll();
+                    drainScores();
+                    drainTips();
+                    drainPickups();
+                    // a HIVE that tipped on its own moved its CELLs: the UI only sees that from a
+                    // fresh field description (this is the same message the option selects send)
+                    if (world.takeFieldChanged()) broadcastField();
                     web.broadcast(gson.toJson(stateMessage()));
                     List<SimLog.Entry> entries = SimLog.since(lastLogSeq, 200);
                     if (!entries.isEmpty()) {

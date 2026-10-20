@@ -25,6 +25,27 @@ public final class Field {
         }
     }
 
+    /**
+     * A scoring target for launched balls: an axis-aligned volume. The DECODE goals are the goal
+     * boxes themselves; the BIOBUZZ CELLs are the mouths the balls are thrown into.
+     */
+    public static final class Goal {
+        public final String name;
+        public final double x, y, z;      // centre, inches
+        public final double hx, hy, hz;   // half extents, inches
+        public Goal(String name, double x, double y, double z, double hx, double hy, double hz) {
+            this.name = name; this.x = x; this.y = y; this.z = z; this.hx = hx; this.hy = hy; this.hz = hz;
+        }
+        public boolean contains(double px, double py, double pz) {
+            return Math.abs(px - x) <= hx && Math.abs(py - y) <= hy && Math.abs(pz - z) <= hz;
+        }
+        /** The scoring volume of a goal obstacle: the box itself, floor to its top. */
+        public static Goal from(Obstacle o) {
+            return new Goal(o.name, (o.minX + o.maxX) / 2, (o.minY + o.maxY) / 2, o.height / 2,
+                            (o.maxX - o.minX) / 2, (o.maxY - o.minY) / 2, o.height / 2);
+        }
+    }
+
     /** A single AprilTag (or a cluster member) placed on the field. */
     public static final class AprilTag {
         public final int id;
@@ -55,6 +76,35 @@ public final class Field {
         }
         /** Direction the cluster faces (unit vector). */
         public double[] facing() { double p = Math.toRadians(pitchDeg), y = Math.toRadians(yawDeg); return new double[] { Math.cos(p) * Math.cos(y), Math.cos(p) * Math.sin(y), Math.sin(p) }; }
+        /**
+         * Unit axes of the cluster frame: across (the tag row), up (toward the pentagon apex) and
+         * depth (from the mouth into the box, i.e. -facing).
+         */
+        public double[][] axes() {
+            double p = Math.toRadians(pitchDeg), yaw = Math.toRadians(yawDeg);
+            double[] f = facing();
+            return new double[][] {
+                { -Math.sin(yaw), Math.cos(yaw), 0 },
+                { -Math.sin(p) * Math.cos(yaw), -Math.sin(p) * Math.sin(yaw), Math.cos(p) },
+                { -f[0], -f[1], -f[2] } };
+        }
+        /** Field position of a box-local offset: (across, up, depth) from the cluster origin. */
+        public double[] point(double u, double w, double d) {
+            double[][] a = axes();
+            return new double[] {
+                x + a[0][0] * u + a[1][0] * w + a[2][0] * d,
+                y + a[0][1] * u + a[1][1] * w + a[2][1] * d,
+                z + a[0][2] * u + a[1][2] * w + a[2][2] * d };
+        }
+        /** The inverse: a field point as box-local offsets (across, up, depth) from the origin. */
+        public double[] local(double px, double py, double pz) {
+            double[][] a = axes();
+            double dx = px - x, dy = py - y, dz = pz - z;
+            return new double[] {
+                dx * a[0][0] + dy * a[0][1] + dz * a[0][2],
+                dx * a[1][0] + dy * a[1][1] + dz * a[1][2],
+                dx * a[2][0] + dy * a[2][1] + dz * a[2][2] };
+        }
         /** Field position of a member given its offset in the cluster frame. */
         public double[] memberPosition(double[] off) {
             double p = Math.toRadians(pitchDeg), yaw = Math.toRadians(yawDeg);
@@ -99,6 +149,8 @@ public final class Field {
     public final List<Zone> zones = new CopyOnWriteArrayList<>();
     public final List<Shape> shapes = new CopyOnWriteArrayList<>();
     public final List<Option> options = new ArrayList<>();
+    /** Scoring targets for launched balls; rebuilt with the field (CELLs move when a HIVE tips). */
+    public final List<Goal> goals = new CopyOnWriteArrayList<>();
     private final Map<String, String> state = new LinkedHashMap<>();
     private Runnable rebuilder = () -> {};
 
@@ -124,6 +176,35 @@ public final class Field {
         }
     }
 
+    /** The CELL cluster with this exact name, or null (the DECODE goals are not clusters). */
+    public Cluster cluster(String name) {
+        if (name == null) return null;
+        for (Cluster c : clusters) if (c.name.equals(name)) return c;
+        return null;
+    }
+
+    /**
+     * Where the n-th captured ball rests inside a CELL: stacked three across on the bottom face,
+     * row by row from the back wall toward the mouth (the facing side, the only open face).
+     */
+    public double[] cellSlotPosition(Cluster cl, int slot, double radiusIn) {
+        int col = (slot % 3) - 1, row = slot / 3;
+        double x = col * 2.4 * radiusIn;
+        double z = CELL_DEPTH_IN / 2 - radiusIn - row * 2.1 * radiusIn;   // back wall first
+        return cl.memberPosition(new double[] { x, CELL_BOTTOM_IN - radiusIn, z });
+    }
+
+    /** Match start: the red upward CELL faces the audience, the blue one the rear wall. */
+    public synchronized void resetHives() {
+        boolean changed = false;
+        for (Option o : options) {
+            if (!o.key.equals("redHive") && !o.key.equals("blueHive")) continue;
+            String start = o.key.equals("redHive") ? "audience" : "scoring";
+            if (!start.equals(state.get(o.key))) { state.put(o.key, start); changed = true; }
+        }
+        if (changed) rebuilder.run();
+    }
+
     public static Field decode() {
         Field f = new Field();
         f.name = "DECODE";
@@ -134,9 +215,13 @@ public final class Field {
         f.tags.add(new AprilTag(21, "Obelisk GPP", 78.0, 0.0, 12.0, 180.0, 6.5));
         f.tags.add(new AprilTag(22, "Obelisk PGP", 78.0, 0.0, 12.0, 180.0, 6.5));
         f.tags.add(new AprilTag(23, "Obelisk PPG", 78.0, 0.0, 12.0, 180.0, 6.5));
-        // Goal structures (approximate footprints) in the -X corners.
-        f.obstacles.add(new Obstacle("Blue goal", -72, -72, -48, -48, 40, "#2b5fd9"));
-        f.obstacles.add(new Obstacle("Red goal", -72, 48, -48, 72, 40, "#d93b2b"));
+        // Goal structures (approximate footprints) in the -X corners. A ball that lands inside one scores.
+        Obstacle blueGoal = new Obstacle("Blue goal", -72, -72, -48, -48, 40, "#2b5fd9");
+        Obstacle redGoal = new Obstacle("Red goal", -72, 48, -48, 72, 40, "#d93b2b");
+        f.obstacles.add(blueGoal);
+        f.obstacles.add(redGoal);
+        f.goals.add(Goal.from(blueGoal));
+        f.goals.add(Goal.from(redGoal));
         f.options.add(new Option("obelisk", "Obelisk", new String[] { "21", "22", "23" }, new String[] { "21 (GPP)", "22 (PGP)", "23 (PPG)" }));
         f.state.put("obelisk", "21");
         return f;
@@ -150,15 +235,66 @@ public final class Field {
     // +Y, audience at +X.
     private static final double HIVE_PIVOT_Z = 43.95, HIVE_ARM = 21.46, HIVE_TILT_DEG = 30, HIVE_Y = 12.75;
     private static final double CELL_CENTER_ABOVE_ARM = 5.6375; // pentagon centre above the arm line (lip at 53.5 in, top at 65.6 in)
-    private static final double[][] CLUSTER_OFFSETS = { { -6.5, 7.187, -5.622 }, { -2.75, 7.187, -5.622 }, { 2.75, 7.187, -5.622 }, { 6.5, 7.187, -5.622 } };
+    // AprilTag sticker offsets within the CELL frame: { across, height above cluster origin, depth
+    // along the mouth normal }. Depth is 0 — the sticker sits at the MIDDLE of the bottom face, not
+    // recessed to the back wall (-5.622) — which is also where the 3D view draws it, so the simulated
+    // detections line up with what the picture-in-picture actually shows.
+    private static final double[][] CLUSTER_OFFSETS = { { -6.5, 7.187, 0 }, { -2.75, 7.187, 0 }, { 2.75, 7.187, 0 }, { 6.5, 7.187, 0 } };
     private static final double CLUSTER_TAG_SIZE = 3.25;
+    /** CELL box, shared with the ball physics: the pentagon bottom face sits 9.938 in below the
+     *  cluster origin (the mouth centre) and the box is 11.244 in deep along the mouth normal. */
+    public static final double CELL_BOTTOM_IN = 9.938, CELL_DEPTH_IN = 11.244;
+    /**
+     * The CELL's pentagon cross-section in the cluster plane: (across, up) in inches, the same
+     * numbers the 3D view draws (manual fig 9-11). Listed counter-clockwise, so an edge from a to
+     * b has the outward normal (dy, -dx)/|.|.
+     */
+    public static final double[][] CELL_PENT = {
+        { -10, -9.938 }, { 10, -9.938 }, { 10, -2.328 }, { 0, 4.062 }, { -10, -2.328 } };
+
+    /**
+     * Signed distance from (across, up) to the CELL pentagon: negative inside, zero on an edge.
+     * The polygon is convex, so the largest signed distance over its edges is the real one and
+     * {@code <= margin} means "inside, grown by margin".
+     */
+    public static double pentagonSd(double u, double w) {
+        double sd = -Double.MAX_VALUE;
+        for (int i = 0; i < CELL_PENT.length; i++) {
+            double[] a = CELL_PENT[i], b = CELL_PENT[(i + 1) % CELL_PENT.length];
+            double ex = b[0] - a[0], ey = b[1] - a[1];
+            double len = Math.hypot(ex, ey);
+            double s = ((u - a[0]) * ey - (w - a[1]) * ex) / len;   // (p-a)·(ey,-ex)/|.|
+            if (s > sd) sd = s;
+        }
+        return sd;
+    }
+
+    /** Closest point on the CELL pentagon boundary to (across, up). */
+    public static double[] pentagonClosest(double u, double w) {
+        double best = Double.MAX_VALUE, bu = u, bw = w;
+        for (int i = 0; i < CELL_PENT.length; i++) {
+            double[] a = CELL_PENT[i], b = CELL_PENT[(i + 1) % CELL_PENT.length];
+            double ex = b[0] - a[0], ey = b[1] - a[1];
+            double len2 = ex * ex + ey * ey;
+            double t = len2 > 1e-12 ? Math.max(0, Math.min(1, ((u - a[0]) * ex + (w - a[1]) * ey) / len2)) : 0;
+            double qu = a[0] + ex * t, qw = a[1] + ey * t;
+            double d2 = (u - qu) * (u - qu) + (w - qw) * (w - qw);
+            if (d2 < best) { best = d2; bu = qu; bw = qw; }
+        }
+        return new double[] { bu, bw };
+    }
+    /**
+     * Launched balls the upward-facing CELL must hold before the HIVE tips. The manual only says
+     * "enough POLLEN or NECTAR" (section 10.4) without a number; this sim tips at four.
+     */
+    public static final int HIVE_TIP_BALLS = 4;
     public static final String RED = "#d93b2b", BLUE = "#2b5fd9", YELLOW = "#e8c547";
 
     public static Field biobuzz() {
         Field f = new Field();
         f.name = "BIOBUZZ";
-        f.options.add(new Option("redHive", "Red HIVE up CELL", new String[] { "audience", "scoring" }, new String[] { "audience side (+X)", "scoring side (-X)" }));
-        f.options.add(new Option("blueHive", "Blue HIVE up CELL", new String[] { "audience", "scoring" }, new String[] { "audience side (+X)", "scoring side (-X)" }));
+        f.options.add(new Option("redHive", "Red HIVE up", new String[] { "audience", "scoring" }, new String[] { "Audience", "Scoring" }));
+        f.options.add(new Option("blueHive", "Blue HIVE up", new String[] { "audience", "scoring" }, new String[] { "Audience", "Scoring" }));
         f.state.put("redHive", "audience");  // match start: the red upward CELL faces the audience
         f.state.put("blueHive", "scoring");  // the blue upward CELL faces the rear wall
         // Static collision boxes: HIVE foot bars (parallel to X at Y = +-24) and the four wall-mounted FLOWERs.
@@ -180,7 +316,7 @@ public final class Field {
 
     /** Places the CELLs, their tag clusters and the drawing of both HIVEs for the current tip state. */
     private static void buildHives(Field f) {
-        f.tags.clear(); f.clusters.clear(); f.shapes.clear();
+        f.tags.clear(); f.clusters.clear(); f.shapes.clear(); f.goals.clear();
         // frame outline and the pivot bar
         f.shapes.add(new Shape("rect", new double[] { -19.475, -24.73, 19.475, 24.73 }, null, "#6c7a95", 1.5, null));
         f.shapes.add(new Shape("line", new double[] { 0, -24.73, 0, 24.73 }, null, "#6c7a95", 2, null));
@@ -207,6 +343,8 @@ public final class Field {
                 : new Cluster(prefix + " SCORING", upX, hy, upZ, upYaw, HIVE_TILT_DEG, scoringIds, CLUSTER_OFFSETS, CLUSTER_TAG_SIZE);
             for (Cluster cl : new Cluster[] { audience, scoring }) {
                 f.clusters.add(cl);
+                // the CELL mouth: ~12 in along the arm by 20 in across; a ball that reaches it scores
+                f.goals.add(new Goal(cl.name, cl.x, cl.y, cl.z, 6, 10, 8));
                 for (int i = 0; i < cl.memberIds.length; i++) {
                     double[] p = cl.memberPosition(cl.memberOffsets[i]);
                     f.tags.add(new AprilTag(cl.memberIds[i], cl.name + " " + (i + 1), p[0], p[1], p[2], cl.yawDeg, cl.tagSizeIn));

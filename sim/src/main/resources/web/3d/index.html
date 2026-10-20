@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FTCSim 3D</title>
-<link rel="stylesheet" href="style.css?v=20261016b">
+<link rel="stylesheet" href="style.css">
 <script type="importmap">
 {
   "imports": {
@@ -60,7 +60,6 @@
       <input id="camPitch" type="range" min="-30" max="80" step="1" value="35" title="Camera tilt: negative looks down, positive looks up (aim up at the HIVE tags)">
       <span class="mono camdeg" id="camPitchVal">+35°</span>
       <button id="camSyncBtn" class="mini" title="Re-sync the view to the team code's Webcam mount and show the tags it detects">⟳</button>
-      <button id="camHideBtn" class="mini" title="Hide the camera view">Hide</button>
     </div>
     <div class="camstatus" id="camStatus">waiting for a Webcam…</div>
   </div>
@@ -76,11 +75,9 @@
       <button id="initBtn" class="primary">INIT</button>
       <button id="startBtn" class="go">▶ START</button>
       <button id="stopBtn" class="stop">■ STOP</button>
-      <button id="restartBtn" class="stop hidden">Restart Robot</button>
-    </div>
-    <div class="row">
       <label class="chk"><input type="checkbox" id="timerChk"> Match timer</label>
       <span id="timerRemaining" class="mono"></span>
+      <button id="restartBtn" class="stop hidden">Restart Robot</button>
     </div>
     <pre id="errorBox" class="errorbox hidden"></pre>
     <div class="pdivider"></div>
@@ -95,12 +92,10 @@
     <pre id="telLines" class="tellines">waiting for telemetry…</pre>
   </div>
 
-  <!-- centre column: pose + view controls, with the field-event panel underneath -->
+  <!-- centre column: pose + view controls, with the biobuzz panel underneath -->
   <div id="centerCol">
     <!-- pose readout + set-pose controls + 3D view controls (as in the 2D UI) -->
     <div class="panel" id="posePanel" title="drag robot to move · shift/right-drag robot to rotate · shift+wheel over robot: ±5° · elsewhere: orbit/zoom/pan">
-      <div class="row ptitle"><span class="ptitle-text">Pose · View</span></div>
-      <button class="collapse-btn" title="Collapse / expand">–</button>
       <!-- left/right split: pose (left) | view (right) -->
       <div class="pvsplit">
         <div class="pvcol pvpose">
@@ -117,27 +112,34 @@
         <div class="pvsep"></div>
         <div class="pvcol pvview">
           <div class="row">
-            <button id="camOrbit" class="active">Orbit</button>
-            <button id="camChase">Chase</button>
-            <button id="camTop">Top</button>
-            <button id="padsToggle" class="mini" title="Show / hide the virtual gamepads">Pads</button>
-            <button id="camToggle" class="mini active" title="Show / hide the robot camera view in the bottom-left corner">Cam</button>
-            <label class="chk"><input type="checkbox" id="trailChk" checked> Trail</label>
-            <label class="chk"><input type="checkbox" id="labelsChk" checked> Labels</label>
-            <label class="chk" title="FTC Dashboard / Panels field drawings (Road Runner planned path…). Drawings stick until a new OpMode loads or you clear them."><input type="checkbox" id="overlayChk" checked> Overlay</label>
+            <select id="camSelect" class="mini" title="Camera view">
+              <option value="orbit" selected>Orbit</option>
+              <option value="chase">Chase</option>
+              <option value="top">Top</option>
+            </select>
+            <button id="trailBtn" class="mini" title="Show / hide the odometry trail">Trail</button>
+            <button id="labelsBtn" class="mini active" title="Show / hide field labels">Labels</button>
+            <button id="overlayBtn" class="mini active" title="FTC Dashboard / Panels field drawings (Road Runner planned path…). Drawings stick until a new OpMode loads or you clear them.">Overlay</button>
             <button id="overlayClearBtn" class="mini" title="Clear the field drawings now">Clear</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- field event: which CELL/HIVE faces up for each alliance (controls sit inline with the title to save height) -->
-    <div class="panel" id="fieldEventPanel">
+    <!-- biobuzz: everything about this season's game — field, logo, and any other competition feature (controls sit inline with the title to save height) -->
+    <div class="panel" id="bioBuzzPanel">
       <div class="row ptitle">
-        <span class="ptitle-text">Field Event</span>
-        <div class="row fe-inline" id="fieldOptions"></div>
+        <span class="ptitle-text">BioBuzz</span>
+        <div class="row bbInline" id="bioBuzzOptions"></div>
+        <!-- launcher: only shown when the robot configuration declares one. Firing itself is driven by
+             the team's own code (the simulator infers a shot from its devices); only the angle is here. -->
+        <span class="row hidden" id="launcherInline">
+          <label class="chk" for="launchPitch">Launch pitch</label>
+          <input id="launchPitch" type="range" min="0" max="90" step="1" value="60" title="Angle the ball leaves at, above horizontal">
+          <span class="mono launchdeg" id="launchPitchVal">60°</span>
+          <span class="pill" id="ammoPill" title="Balls left in the magazine">–</span>
+        </span>
       </div>
-      <button class="collapse-btn" title="Collapse / expand">–</button>
     </div>
   </div>
 
@@ -179,7 +181,7 @@
   </div>
 
   <!-- bottom-centre full-width: virtual gamepads (as in the 2D UI) -->
-  <div class="panel hidden" id="padsPanel">
+  <div class="panel" id="padsPanel">
     <div class="row ptitle"><span class="ptitle-text">Gamepads</span></div>
     <button class="collapse-btn" title="Collapse / expand">–</button>
     <div class="gamepads">
@@ -190,6 +192,6 @@
 </div>
 
 <div id="toasts"></div>
-<script type="module" src="main.js?v=20261016b"></script>
+<script type="module" src="main.js"></script>
 </body>
 </html>

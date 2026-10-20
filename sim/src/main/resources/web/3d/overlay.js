@@ -15,7 +15,7 @@
 //   shapes: line{x1,y1,x2,y2} polyline/polygon{xs,ys} rect{x,y,w,h} circle{x,y,r} text{t,x,y}
 //   frame:  'ftc' (inches, field frame) or 'pedro' (converted below)
 import * as THREE from 'three';
-import { ftc } from './field.js?v=20261013m';
+import { ftc } from './field.js';
 
 const OVERLAY_Y = 0.45;      // above the floor (+ zones 0.06, odometry trail 0.3)
 const MIN_W_IN = 1.2;        // ribbon width clamp, inches

@@ -4,8 +4,8 @@
 // Parts the team declared a mount for (motors, servos) are added by parts.js and animated from
 // the same message's device views.
 import * as THREE from 'three';
-import { parseMounts, mountSignature, buildPartMesh, angleFor } from './parts.js?v=20261018a';
-import { motorColor, activityColor, IDLE_COLOR } from './activity.js?v=20261018a';
+import { parseMounts, mountSignature, buildPartMesh, angleFor } from './parts.js';
+import { motorColor, activityColor, IDLE_COLOR } from './activity.js';
 
 const BODY_COLOR = 0x3d6fd9;
 const WHEEL_COLOR = IDLE_COLOR;
@@ -26,6 +26,15 @@ export class Robot {
     this.group = new THREE.Group();
     this.group.name = 'robot';
     scene.add(this.group);
+
+    // Balls carried in the magazine, drawn inside the (translucent) chassis so you can see how many
+    // are left without a HUD number. Parented to the robot group, so they ride along as it drives.
+    this.ammoGroup = new THREE.Group();
+    this.ammoGroup.name = 'ammo';
+    this.group.add(this.ammoGroup);
+    this.ammoMeshes = [];
+    this.ammoCapacity = 0;
+    this.ammoRadius = 0;
 
     this.spec = { lengthIn: 18, widthIn: 17, heightIn: 6, chassisOpacity: CHASSIS_OPACITY };
     this.drive = { wheelDiameterIn: 0, trackWidthIn: 0, wheelBaseIn: 0 };
@@ -96,7 +105,7 @@ export class Robot {
     // rebuilds the body whenever the robot dimensions change and that must not throw away mounts
     // the team configured. Everything else — body, edges, wheels — is rebuilt below.
     for (const c of [...g.children]) {
-      if (c === this.camPivot || c.name?.startsWith('part-')) continue;
+      if (c === this.camPivot || c === this.ammoGroup || c.name?.startsWith('part-')) continue;
       c.traverse?.(o => { o.geometry?.dispose(); o.material?.dispose?.(); });
       g.remove(c);
     }
@@ -373,6 +382,37 @@ export class Robot {
 
   position() { return this.group.position.clone(); }
   heading() { return this.current.h; }
+
+  /**
+   * Show `remaining` of `capacity` balls sitting inside the chassis, replacing the HUD
+   * "remaining/capacity" text pill: you can now read the magazine at a glance through the
+   * translucent body. Firing drops `remaining`, reloading refills it; this just mirrors that count.
+   */
+  setAmmo(remaining, capacity, radiusIn) {
+    if (!capacity) { this.ammoGroup.visible = false; return; }
+    this.ammoGroup.visible = true;
+    const r = radiusIn > 0.5 && radiusIn < 9 ? radiusIn : 3.0;
+    if (capacity !== this.ammoCapacity || r !== this.ammoRadius) {
+      for (const m of this.ammoMeshes) { m.geometry.dispose(); m.material.dispose(); this.ammoGroup.remove(m); }
+      this.ammoMeshes = [];
+      this.ammoCapacity = capacity;
+      this.ammoRadius = r;
+      const L = this.spec.lengthIn, W = this.spec.widthIn, H = this.spec.heightIn;
+      const spots = ammoLayout(capacity, r, L, W, H);
+      for (let i = 0; i < capacity; i++) {
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(r, 16, 12),
+          new THREE.MeshStandardMaterial({ color: 0xf2f4f8, roughness: 0.4, metalness: 0.05 }));
+        mesh.position.copy(spots[i]);
+        mesh.castShadow = true;
+        mesh.visible = i < remaining;
+        this.ammoGroup.add(mesh);
+        this.ammoMeshes.push(mesh);
+      }
+    } else {
+      for (let i = 0; i < this.ammoMeshes.length; i++) this.ammoMeshes[i].visible = i < remaining;
+    }
+  }
 }
 
 function angleDelta(from, to) {
@@ -380,6 +420,27 @@ function angleDelta(from, to) {
   if (d > Math.PI) d -= Math.PI * 2;
   if (d < -Math.PI) d += Math.PI * 2;
   return d;
+}
+
+/**
+ * Cluster `n` balls (radius `r`) in a tight grid at the CENTRE of the chassis — not spread out to the
+ * wheels. Balls just clear each other (spacing ~2r) and the whole cluster is centred on the robot
+ * origin, so they read as "carried in the middle of the car". Robot-local frame: +X forward (length L),
+ * +Z right (width W), +Y up (height H); the cluster sits at mid-height. Returns an array of Vector3.
+ */
+function ammoLayout(n, r, L, W, H) {
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const step = 2 * r + 0.2;   // balls just touch, kept in one central clump
+  const x0 = -((cols - 1) * step) / 2;
+  const z0 = -((rows - 1) * step) / 2;
+  const y = H / 2;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const c = i % cols, rw = Math.floor(i / cols);
+    out.push(new THREE.Vector3(x0 + c * step, y, z0 + rw * step));
+  }
+  return out;
 }
 
 /**

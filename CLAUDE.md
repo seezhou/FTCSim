@@ -69,6 +69,17 @@ Desktop simulator for FTC robot code (see README.md for usage). Key facts for wo
 - SDK 12's `AprilTagGameDatabase.getCurrentGameTagLibrary()` returns unplaced sample tags (583-586), so the
   official AprilTag samples detect nothing on the DECODE field; Decode (SDK 11) uses the DECODE library.
 - Sweep results are kept in `build/*-sweep*.log`; `ClassFactory.getInstance()` is `SimClassFactory`.
+- Launcher: balls live in `World.projectiles` and are integrated from `World.step` like everything
+  else. A shot is inferred, never announced by team code: `trigger.servo` crossing `position`, or
+  the flywheel passing `minRpm` when no servo is named. Three traps here — a servo ramps at
+  `secondsFullRange`, so the trigger has to be a level crossing with hysteresis (a per-poll jump
+  test misses slow servos entirely); `minRpm` is the speed the ball *waits for* after the push, not
+  a gate checked once, so a team whose spin-up is shorter than its flywheel's acceleration still
+  gets a full-speed shot; and it must be set near the wheel's real firing speed, or the ball leaves
+  while the wheel is still spinning up and barely clears the robot. The angle is not fixed at
+  configuration time either: the launcher row's own pitch slider overrides it at runtime over
+  `sim.launcherPitch` (the camera panel's pitch slider is the camera's alone), and the configured
+  `pitchDeg` is only where that slider starts.
 
 ## Conventions
 - Commit messages: plain description, no model identifiers.

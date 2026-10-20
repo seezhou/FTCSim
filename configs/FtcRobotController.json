@@ -46,13 +46,26 @@
     {
       "name": "WebCam 1", "type": "Webcam", "hub": "Control Hub", "port": 4,
       "params": {
-        "mount": { "x": 6, "y": 0, "z": 10, "yawDeg": 0, "pitchDeg": 60 }
+        "mount": { "x": 6, "y": 0, "z": 10, "yawDeg": 0, "pitchDeg": 50 },
+        "hfovDeg": 45.0,
+        "vfovDeg": 30.0
       }
     },
     {
       "name": "launchLeft", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 0,
       "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004,
-        "mount": {"x": -6.5, "y": 7.6, "z": 8.0, "axis": "z", "shape": "cylinder", "diameterIn": 1.4, "lengthIn": 2.2}}
+        "mount": {"x": -6.5, "y": 7.6, "z": 8.0, "axis": "z", "shape": "cylinder", "diameterIn": 1.4, "lengthIn": 2.2},
+        "launcher": {
+          "exit": { "x": -4.5, "y": 0.0, "z": 8.0 },
+          "speedFrom": "launchLeft",
+          "wheelDiameterIn": 1.4,
+          "slip": 0.85,
+          "pitchDeg": 65,
+          "ballRadiusIn": 1.4,
+          "capacity": 4,
+          "salvoIntervalSec": 0.05,
+          "trigger": { "servo": "leftServo", "position": 0.5, "minRpm": 3500 }
+        }}
     },
     {
       "name": "launchRight", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 1,

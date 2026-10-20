@@ -5,13 +5,14 @@
 // reuse the existing sim.field message).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createField } from './field.js?v=20261016b';
-import { Robot } from './robot.js?v=20261018h';
-import { startGamepads } from './gamepad.js?v=20261016b';
-import { startRobotDrag } from './drag.js?v=20261016b';
-import { createOverlay } from './overlay.js?v=20261016b';
-import { createPanels } from './panels.js?v=20261016b';
-import { createWebcam, parseMount, parseDetections } from './webcam.js?v=20261016b';
+import { createField } from './field.js';
+import { Robot } from './robot.js';
+import { startGamepads } from './gamepad.js';
+import { startRobotDrag } from './drag.js';
+import { createOverlay } from './overlay.js';
+import { createBalls } from './balls.js';
+import { createPanels } from './panels.js';
+import { createWebcam, parseMount, parseDetections } from './webcam.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -63,6 +64,8 @@ const field = createField(scene);
 const robot = new Robot(scene);
 // FTC Dashboard / Panels field overlays (Road Runner's planned path, etc.)
 const overlay = createOverlay(scene);
+// Balls the robot launched. The backend owns their physics; this only draws where they are.
+const balls = createBalls(scene);
 
 // odometry trail
 const TRAIL_MAX = 3000;
@@ -73,6 +76,7 @@ trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
 trailGeom.setDrawRange(0, 0);
 const trailLine = new THREE.Line(trailGeom, new THREE.LineBasicMaterial({ color: 0x8fb8ff, transparent: true, opacity: 0.85 }));
 trailLine.frustumCulled = false;
+trailLine.visible = false;
 scene.add(trailLine);
 
 let lastTrailPoint = null;
@@ -113,19 +117,22 @@ function handle(m) {
       $('fieldPill').textContent = `${fieldName} · ${m.configName || ''}`;
       field.rebuild(m.field);
       robot.setSpec({ ...(m.robot || {}), startPose: m.startPose });
-      renderFieldOptions(m.field);
+      renderBioBuzz(m.field);
       $('camHint').classList.add('hidden');
       clearTrail();
+      balls.clear();
       break;
     case 'field':
       fieldName = m.field?.name || '';
       $('fieldPill').textContent = fieldName;
       field.rebuild(m.field);
-      renderFieldOptions(m.field);
+      renderBioBuzz(m.field);
       break;
     case 'state':
       if (m.robot) robot.setState(m.robot);
       syncCameraTeam(m.devices);
+      balls.setState(m.balls);
+      updateLauncher(m.launcher);
       overlay.setDrawings(m.drawings);
       syncOverlayLifecycle(m.opmode);
       updateHud(m);
@@ -137,6 +144,8 @@ function handle(m) {
       break;
     case 'gamepad.rumble': gamepads.applyRumble(m); break;
     case 'gamepad.rumble.stop': gamepads.stopAllRumble(); break;
+    case 'ball.score': onBallScore(m); break;
+    case 'hive.tip': onHiveTip(m); break;
     case 'toast': toast(m.level, m.text); break;
   }
 }
@@ -207,6 +216,44 @@ function updateDsPanel(op) {
   }
 }
 
+// ------------------------------------------------------------------ launcher
+// The launch angle belongs to the launcher, not to the camera. The configuration decides where it
+// starts; once the slider is touched, it wins. Firing is left to the team's own code — the
+// simulator infers a shot from the devices it drives — so there is no fire button here.
+let launchPitchTouched = false;
+$('launchPitch').oninput = () => {
+  launchPitchTouched = true;
+  const deg = +$('launchPitch').value;
+  $('launchPitchVal').textContent = deg + '°';
+  send({ type: 'sim.launcherPitch', deg });
+};
+
+// The magazine is the robot's, not the UI's: the backend counts the balls (one per shot) and
+// tells us how many are left until it reloads in the reload zone.
+function updateLauncher(l) {
+  if (!l) return;
+  $('launcherInline').classList.toggle('hidden', !l.enabled);
+  if (!l.enabled) { robot.setAmmo(0, 0); return; }
+  // The magazine is now drawn as balls inside the robot (robot.setAmmo); the text pill is redundant.
+  $('ammoPill').classList.add('hidden');
+  robot.setAmmo(l.remaining, l.capacity, l.ballRadiusIn);
+  // Follow the backend's angle until the slider is used, so the control opens on the configured one.
+  if (!launchPitchTouched && l.pitchDeg != null) {
+    $('launchPitch').value = String(Math.round(l.pitchDeg));
+    $('launchPitchVal').textContent = Math.round(l.pitchDeg) + '°';
+  }
+}
+
+function onBallScore(m) {
+  toast('info', `${m.goal}: ${m.total} scored`);
+}
+
+// A HIVE tip, not the balls, is what scores on BIOBUZZ: the balls only ever show up as
+// "in CELL" in the launcher row (see updateLauncher).
+function onHiveTip(m) {
+  toast('info', `${m.alliance} HIVE tipped — +${m.points} pts`);
+}
+
 // ------------------------------------------------- FTC Dashboard / Panels overlay
 // The drawings layer is sticky (see overlay.js): it no longer expires on its own,
 // because the backend stops broadcasting a drawing 3 s after the team code stops
@@ -267,8 +314,8 @@ function renderTelemetry(m) {
   $('telCount').className = 'pill' + (lines.length ? ' ok' : '');
 }
 
-function renderFieldOptions(f) {
-  const host = $('fieldOptions');
+function renderBioBuzz(f) {
+  const host = $('bioBuzzOptions');
   const opts = f?.options || [];
   const key = JSON.stringify(opts.map(o => o.key)) + fieldName;
   if (host.dataset.key === key) {
@@ -312,8 +359,7 @@ function toast(level, text) {
 // ---------------------------------------------------------------- camera modes
 function setCamMode(mode) {
   camMode = mode;
-  for (const [id, m] of [['camOrbit', 'orbit'], ['camChase', 'chase'], ['camTop', 'top']])
-    $(id).classList.toggle('active', m === mode);
+  $('camSelect').value = mode;
   if (mode === 'top') {
     camera.position.set(0.01, 260, 0.01);
     controls.target.set(0, 0, 0);
@@ -324,20 +370,15 @@ function setCamMode(mode) {
     controls.enabled = false;
   }
 }
-$('camOrbit').onclick = () => setCamMode('orbit');
-$('camChase').onclick = () => setCamMode('chase');
-$('camTop').onclick = () => setCamMode('top');
+$('camSelect').onchange = (e) => setCamMode(e.target.value);
 
-$('trailChk').onchange = (e) => { if (!e.target.checked) clearTrail(); trailLine.visible = e.target.checked; };
-$('labelsChk').onchange = (e) => field.setLabelsVisible(e.target.checked);
-$('overlayChk').onchange = (e) => overlay.setVisible(e.target.checked);
-// the virtual gamepads take a lot of room, so they live in their own flippable panel
-$('padsToggle').onclick = () => {
-  const hidden = $('padsPanel').classList.toggle('hidden');
-  $('padsToggle').classList.toggle('active', !hidden);
+$('trailBtn').onclick = (e) => {
+  const on = e.currentTarget.classList.toggle('active');
+  if (!on) clearTrail();
+  trailLine.visible = on;
 };
-if (innerWidth >= 1500) { $('padsPanel').classList.remove('hidden'); $('padsToggle').classList.add('active'); }
-
+$('labelsBtn').onclick = (e) => { const on = e.currentTarget.classList.toggle('active'); field.setLabelsVisible(on); };
+$('overlayBtn').onclick = (e) => { const on = e.currentTarget.classList.toggle('active'); overlay.setVisible(on); };
 // per-panel collapse buttons (the right panel has its own #rightToggle)
 for (const btn of document.querySelectorAll('button.collapse-btn')) {
   const p = btn.closest('.panel');
@@ -435,14 +476,6 @@ camPitch.oninput = applyCamPitch;
 $('camSyncBtn').onclick = () => { if (camMount) applyCamMount(camMount); else toast('info', 'No team Webcam in the robot configuration yet'); };
 applyCamPitch();
 
-$('camHideBtn').onclick = () => setCamPanelVisible(false);
-$('camToggle').onclick = () => setCamPanelVisible(camPanel.classList.contains('hidden'));
-function setCamPanelVisible(v) {
-  camPanel.classList.toggle('hidden', !v);
-  $('camToggle').classList.toggle('active', v);
-  syncCamPanelHeight();
-  if (v) webcam.resize();
-}
 // short viewports cannot spare the room: start with the camera collapsed to its title
 if (innerHeight < 620 || innerWidth < 900) camPanel.classList.add('collapsed');
 $('camHint').classList.remove('hidden');
@@ -493,6 +526,8 @@ function animate() {
   const dt = Math.min(clock.getDelta(), 0.1);
   const now = performance.now();
   robot.update(dt);
+  balls.update(dt);
+  field.update(dt);
   if (trailLine.visible) pushTrail(robot.position());
   if (camMode === 'chase') updateChase(dt);
   else controls.update();
@@ -521,7 +556,7 @@ const gamepads = startGamepads({ send, toast, host1: $('gp1'), host2: $('gp2') }
 const panels = createPanels({ send, toast });
 startRobotDrag({ canvas, camera, robot, send });
 // debug/testing handle (harmless in production)
-window.__sim3d = { canvas, camera, controls, robot, overlay, field, panels, webcam, scene };
+window.__sim3d = { canvas, camera, controls, robot, overlay, field, panels, webcam, balls, scene };
 
 connect();
 animate();

@@ -4,8 +4,8 @@ build/
 .idea/
 *.iml
 .DS_Store
-ftcsim.properties
 /configs/*.local.json
 /local.properties
 tools/node_modules
 biobuzz_gm/
+.codebuddy/

@@ -48,6 +48,11 @@ main class directly). Other options:
 ./gradlew run -Prepo=../MyRepo --args="--prebuilt"     # use classes Android Studio built (Kotlin projects)
 ```
 
+The default team repository can also be set once in `ftcsim.properties` (committed here as
+`repo=../FtcRobotController`): with that file present you can run `./gradlew run` and skip `-Prepo`.
+If your team checkout lives somewhere else, edit that one line — the run fails with a message pointing
+you back to `ftcsim.properties` if the path is wrong.
+
 Team dependencies from the repository's Gradle files are resolved automatically; see the upstream
 README for what that covers.
 
@@ -134,6 +139,57 @@ controller bound to that gamepad through the browser Gamepad API. `large` / `sma
 and weak motors, a `duration` of −1 keeps the effect running until the next one or a stop, and the
 2D gamepad shows a `rumble` badge so it is visible without a controller attached. LEDs are still not
 forwarded — the browser Gamepad API has no LED support.
+
+### Balls the robot launches are simulated, not animated
+
+A robot configuration can describe a launcher, and the balls it fires are simulated on the field
+rather than animated in the browser: gravity, bounces off the floor and the perimeter, rolling to a
+stop, and a score when one reaches a goal — the DECODE goals or a BIOBUZZ CELL, whichever the field
+has. They freeze with the pause button and advance with the step button, like everything else.
+
+The launcher is declared on the device that drives it and describes the *shot*, not the mechanism,
+so one block serves a double flywheel, a single-wheel shooter and a catapult alike:
+
+```json
+{ "name": "launchLeft", "type": "DcMotorEx", "hub": "Expansion Hub", "port": 0,
+  "params": {
+    "mount": { "x": -6.5, "y": 7.6, "z": 8.0, "axis": "z", "shape": "cylinder" },
+    "launcher": {
+      "exit": { "x": -4.5, "y": 0.0, "z": 8.0 },
+      "speedFrom": "launchLeft",
+      "wheelDiameterIn": 1.4,
+      "slip": 0.85,
+      "pitchDeg": 30,
+      "capacity": 5,
+      "salvoIntervalSec": 0.5,
+      "trigger": { "servo": "leftServo", "position": 0.5, "minRpm": 1200 }
+    }
+  } }
+```
+
+`exit` is the muzzle in the robot frame (inches, x forward / y left / z up) and defaults to where
+the part is mounted. A ball leaves at the wheel's surface speed, `omega x radius x slip`, along the
+robot's forward direction raised by `pitchDeg`; `speedInPerSec` replaces that with a fixed speed.
+`ballRadiusIn` is the ball's radius — a BIOBUZZ POLLEN is 2.8 in across, so 1.4 — and `ballMassG` is
+its mass in grams. Gravity treats every ball alike, so the mass only ever shows up as air drag, and
+it shows up plainly: a light ball falls well short of a heavy one of the same size. Leave
+`ballMassG` out and drag is a plain linear damping instead.
+The team's code is never modified and the SDK has no "I fired" call, so a shot is *inferred*: either
+`trigger.servo` reaching `position` — a servo ramps rather than jumps, so this is a level crossing
+with `deltaPosition` of hysteresis — or, when no servo is named, the flywheel reaching `minRpm`.
+Set `minRpm` near the speed the wheel actually turns at when it fires: trigger too early and the
+ball is thrown while the wheel is still spinning up, at a fraction of the speed it should have.
+
+One trigger event fires the **whole magazine as a salvo** — every ball leaves, spaced `salvoIntervalSec`
+seconds apart (default 0.5), so a shot reads as a stream of balls rather than one. There is no
+auto-reload zone: the magazine refills on a match reset (INIT / `robot.restart`), or when the robot
+drives over a ball resting on the floor, which is picked back up. The 3D view draws the carried balls
+**inside the translucent chassis** instead of a text count, so the remaining ammunition is visible at a
+glance.
+
+The launch angle is not fixed either: the **Pitch** slider in the launcher's own row aims it live,
+so the shot can be swept without touching the configuration — `pitchDeg` is only where the slider
+starts. (The camera panel's pitch slider is the camera's alone.)
 
 ### Fixes
 

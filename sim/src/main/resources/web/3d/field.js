@@ -115,7 +115,13 @@ export function createField(scene) {
 
   let labelsVisible = true;
 
-  function clear() { disposeObject(root); root.clear(); }
+  function clear() {
+    disposeObject(root);
+    root.clear();
+    // the see-saw meta (displayed tilt, running swing) survives the rebuild; the groups do not
+    for (const k in hiveAssemblies) hiveAssemblies[k].group = null;
+    for (const k in cellGroups) delete cellGroups[k];
+  }
 
   // ---------------------------------------------------------------- static shell
   function buildShell(name) {
@@ -228,8 +234,10 @@ export function createField(scene) {
   const CELL_TUBE_R = 0.65;     // red edge-frame tube radius
   const CELL_BOTTOM = 9.938;    // bottom face below the pentagon centre
   const CELL_MOUTH = CELL_DEPTH / 2;  // mouth (opening) plane along the facing
-  const CELL_TAG_HOLES = 9.938; // mouth plane -> reference-hole centreline (fig 9-15)
-  const CELL_HOLES_TO_TAG = 2.75;   // hole centreline -> tag row centreline
+  const CELL_ARM_DROP = 5.6375; // arm line below the pentagon centre (Field.java CELL_CENTER_ABOVE_ARM)
+  const HIVE_PIVOT_Z = 43.95;   // pivot axis height (Field.java HIVE_PIVOT_Z)
+  const HIVE_Y = 12.75;         // pivot distance from the field centre (Field.java HIVE_Y)
+  const HIVE_TILT = Math.PI / 6;    // 30° — each bi-stable rest position of the see-saw
 
   /** Thin round tube from a to b (three.js local coords) — one edge of a frame. */
   function addEdgeTube(parent, a, b, mat, r = CELL_TUBE_R) {
@@ -242,24 +250,56 @@ export function createField(scene) {
     parent.add(m);
   }
 
+  // Per-alliance see-saw assemblies: everything that rotates around the pivot (the beam, both
+  // CELLs and their tags) lives in one group whose origin is the pivot point, so a tip is a
+  // 60° swing of the group around its local z (the pivot axis runs along FTC Y = three z).
+  const hiveAssemblies = {};   // 'RED'/'BLUE' -> { group, shown, rot }
+  const cellGroups = {};       // cluster name -> the CELL group (tags are parented into it)
+  function hiveAssembly(prefix) {
+    let a = hiveAssemblies[prefix];
+    if (!a || !a.group) {
+      const g = new THREE.Group();
+      g.name = 'hive-' + prefix;
+      g.position.copy(ftc(0, prefix === 'RED' ? -HIVE_Y : HIVE_Y, HIVE_PIVOT_Z));
+      root.add(g);
+      if (!a) a = hiveAssemblies[prefix] = { shown: null, rot: 0 };
+      a.group = g;
+      g.rotation.z = a.rot;
+    }
+    return a;
+  }
+
   function buildClusters(field) {
     for (const cl of field.clusters || []) {
       const color = cl.name.startsWith('RED') ? 0xd93b2b : 0x2b5fd9;
       const { n, up, across } = cellBasis(cl);
-
-      // translucent glass box: the full pentagon prism, open enough to see through
-      const panelShape = new THREE.Shape(CELL_PENT.map(([u, v]) => new THREE.Vector2(u, v)));
-      const panelGeo = new THREE.ExtrudeGeometry(panelShape, { depth: CELL_DEPTH, bevelEnabled: false });
-      panelGeo.translate(0, 0, -CELL_DEPTH / 2);
 
       const cell = new THREE.Group();
       cell.name = 'cell-' + cl.name;
       cell.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(across, up, n));
       cell.position.copy(ftc(cl.x, cl.y, cl.z));
 
-      cell.add(new THREE.Mesh(panelGeo, new THREE.MeshStandardMaterial({
-        color, transparent: true, opacity: 0.14, roughness: 0.35, metalness: 0,
-        side: THREE.DoubleSide, depthWrite: false })));
+      // the box itself, per manual fig 9-11: five closed faces and the whole pentagon mouth
+      // (the largest face) open — back panel plus one wall per pentagon edge
+      const shellMat = new THREE.MeshStandardMaterial({
+        color, transparent: true, opacity: 0.2, roughness: 0.45, metalness: 0,
+        side: THREE.DoubleSide, depthWrite: false });
+      const half = CELL_DEPTH / 2;
+      const backPanel = new THREE.Mesh(
+        new THREE.ShapeGeometry(new THREE.Shape(CELL_PENT.map(([u, v]) => new THREE.Vector2(u, v)))),
+        shellMat);
+      backPanel.position.z = -half;
+      cell.add(backPanel);
+      for (let i = 0; i < CELL_PENT.length; i++) {
+        const [u1, v1] = CELL_PENT[i], [u2, v2] = CELL_PENT[(i + 1) % CELL_PENT.length];
+        const wall = new THREE.Mesh(new THREE.BufferGeometry(), shellMat);
+        wall.geometry.setAttribute('position', new THREE.Float32BufferAttribute([
+          u1, v1, -half, u2, v2, -half, u2, v2, half,
+          u1, v1, -half, u2, v2, half, u1, v1, half,
+        ], 3));
+        wall.geometry.computeVertexNormals();
+        cell.add(wall);
+      }
 
       // red edge frame: thin tubes along the pentagon outline (front + back) and the
       // corner edges through the depth. A deep extruded band here reads as a solid red
@@ -284,10 +324,15 @@ export function createField(scene) {
           map: stickerTexture(cl.name, '#' + color.toString(16).padStart(6, '0')),
           side: THREE.DoubleSide }));
       sticker.name = 'sticker-' + cl.name;
-      sticker.position.set(0, -CELL_BOTTOM - 0.05, CELL_MOUTH - CELL_TAG_HOLES - 0.45 + 5.1 / 2);
+      sticker.position.set(0, -CELL_BOTTOM - 0.05, -0.5);
       sticker.rotation.x = Math.PI / 2;  // plane faces -up (down), texture up = +n (mouth)
       cell.add(sticker);
-      root.add(cell);
+      // a CELL rotates with its HIVE: parent it to the alliance's see-saw assembly
+      const prefix = cl.name.startsWith('RED') ? 'RED' : cl.name.startsWith('BLUE') ? 'BLUE' : null;
+      const parent = prefix ? hiveAssembly(prefix).group : root;
+      if (parent !== root) cell.position.sub(parent.position);
+      parent.add(cell);
+      cellGroups[cl.name] = cell;
     }
     // BIOBUZZ HIVE: see-saw beams through the central pivot bar + frame
     if ((field.name || '').toUpperCase() === 'BIOBUZZ') buildHives(field);
@@ -310,21 +355,68 @@ export function createField(scene) {
       addEdgeTube(root, new THREE.Vector3(-19.475, FOOT_H, bz), new THREE.Vector3(0, 43.95, bz), frameMat, FRAME_R);
       addEdgeTube(root, new THREE.Vector3(19.475, FOOT_H, bz), new THREE.Vector3(0, 43.95, bz), frameMat, FRAME_R);
     }
-    // one see-saw beam per alliance, oriented through its two CELL clusters — the arm
-    // line runs 5.6375 in below the pentagon centres (Field.java CELL_CENTER_ABOVE_ARM),
-    // so the CELLs ride on top of the beam instead of being skewered by it
+    // one see-saw beam per alliance, through the pivot and OUT to each CELL — the rod connects
+    // the two boxes: it stops just short of each box's back face and a short link drops from
+    // the beam end to the box's bottom-back edge, instead of running through the interior
     for (const prefix of ['RED', 'BLUE']) {
+      const asm = hiveAssembly(prefix);
       const a = (field.clusters || []).find(c => c.name === prefix + ' AUDIENCE');
       const s = (field.clusters || []).find(c => c.name === prefix + ' SCORING');
-      if (!a || !s) continue;
-      const drop = (cl) => ftc(cl.x, cl.y, cl.z).addScaledVector(cellBasis(cl).up, -5.6375);
-      const pa = drop(a), ps = drop(s);
-      const dir = pa.clone().sub(ps).normalize();
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(pa.distanceTo(ps), 2.5, 3), beamMat);
-      beam.position.copy(pa.clone().add(ps).multiplyScalar(0.5));
-      beam.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
+      if (!asm || !a || !s) continue;
+      const pivot = asm.group.position;
+      const ends = [a, s].map(cl => {
+        const { up, n } = cellBasis(cl);
+        const centre = ftc(cl.x, cl.y, cl.z);
+        const arm = centre.clone().addScaledVector(up, -CELL_ARM_DROP);
+        const dir = arm.clone().sub(pivot).normalize();
+        // bottom-back edge of the box (the mouth is the +n face)
+        const edge = centre.clone()
+          .addScaledVector(up, -CELL_BOTTOM)
+          .addScaledVector(n, -CELL_MOUTH);
+        const end = pivot.clone().addScaledVector(dir, edge.clone().sub(pivot).dot(dir) - 1.2);
+        return { end, edge, dir };
+      });
+      const [ea, es] = ends;
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(ea.end.distanceTo(es.end), 2.5, 3), beamMat);
+      beam.position.copy(ea.end.clone().add(es.end).multiplyScalar(0.5)).sub(pivot);
+      beam.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), ea.end.clone().sub(es.end).normalize());
       beam.castShadow = true;
-      root.add(beam);
+      asm.group.add(beam);
+      for (const { end, edge } of ends) {
+        addEdgeTube(asm.group, end.clone().sub(pivot), edge.clone().sub(pivot), beamMat, 0.55);
+      }
+    }
+    aimHives(field);
+  }
+
+  /**
+   * Point each see-saw at the stable position the field state asks for. The audience CELL is
+   * mounted at the assembly's +X end, so "audience" tips that end up (+30° around the pivot
+   * axis). A tip is animated: the group starts at the previously displayed pose and swings to
+   * its new one (update() eases the remainder to zero).
+   */
+  function aimHives(field) {
+    const st = field.state || {};
+    for (const prefix of ['RED', 'BLUE']) {
+      const a = hiveAssemblies[prefix];
+      if (!a) continue;
+      const target = st[prefix.toLowerCase() + 'Hive'] === 'scoring' ? -HIVE_TILT : HIVE_TILT;
+      if (a.shown === null) { a.shown = target; a.rot = 0; }
+      else a.rot = a.shown - target;   // start the swing from wherever we displayed last
+      a.shown = target;
+      if (Math.abs(a.rot) < 1e-4) a.rot = 0;
+      a.group.rotation.z = a.rot;
+    }
+  }
+
+  /** Ease the running tip swings back to their rest positions. */
+  function update(dt) {
+    for (const k in hiveAssemblies) {
+      const a = hiveAssemblies[k];
+      if (a.rot === 0) continue;
+      a.rot *= Math.exp(-5 * Math.min(dt, 0.1));   // falls through, then the damper stops it
+      if (Math.abs(a.rot) < 0.002) a.rot = 0;
+      a.group.rotation.z = a.rot;
     }
   }
 
@@ -338,21 +430,24 @@ export function createField(scene) {
       const size = t.size || t.sizeIn || (cl ? 3.25 : 6.5);
       const pos = ftc(t.x, t.y, t.z);
       let quat = null;
+      let parent = root;
       if (cl) {
         // Manual 9.9: the cluster sticker is on the BOTTOM face of the CELL, facing
         // downward toward the tiles, its bottom edge (reference holes) toward the
-        // field centre. Applied to the rendered CELL (fig 9-15): holes 9.938 in back
-        // from the mouth plane, tag row centre 2.75 in further toward the mouth.
-        const { n, up, across } = cellBasis(cl);
+        // field centre. On the rendered CELL (fig 9-15) it sits at the MIDDLE of the
+        // bottom wall (z = 0 in the CELL frame), not recessed toward the back.
+        // Everything below is expressed in the CELL's own frame, so the tag can ride
+        // inside the CELL group and tip with its HIVE.
+        const { across } = cellBasis(cl);
         const origin = ftc(cl.x, cl.y, cl.z);
         const d = pos.clone().sub(origin);
-        pos.copy(origin)
-          .addScaledVector(across, d.dot(across))
-          .addScaledVector(up, -CELL_BOTTOM - 0.15)
-          .addScaledVector(n, CELL_MOUTH - CELL_TAG_HOLES + CELL_HOLES_TO_TAG);
-        // face down (-up); texture "up" toward the mouth (+n), row along across
-        quat = new THREE.Quaternion().setFromRotationMatrix(
-          new THREE.Matrix4().makeBasis(across, n, up.clone().negate()));
+        // local x = across (the row), y = up, z = mouth: keep the tag's offset along the row
+        pos.set(d.dot(across), -CELL_BOTTOM - 0.15, 0);
+        // the same pose as the sticker: flat on the bottom face, facing down, texture up toward
+        // the mouth. The CELL group already carries the orientation, so this is local: the plane's
+        // +z normal turns to -y (down) and its "up" edge turns to +z (toward the mouth).
+        quat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+        parent = cellGroups[cl.name] || root;
       }
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(size, size),
@@ -365,7 +460,7 @@ export function createField(scene) {
         mesh.position.addScaledVector(n, 0.15);
         mesh.lookAt(pos.clone().add(n));
       }
-      root.add(mesh);
+      parent.add(mesh);
     }
   }
 
@@ -470,5 +565,5 @@ export function createField(scene) {
     for (const m of labelMeshes) m.visible = v;
   }
 
-  return { root, rebuild, setLabelsVisible };
+  return { root, rebuild, setLabelsVisible, update };
 }

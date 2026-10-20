@@ -51,6 +51,9 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; fon
 .camctl { gap: 6px; }
 .camctl #camPitch { flex: 1; min-width: 90px; accent-color: #ffd166; }
 .camdeg { min-width: 40px; text-align: right; font-size: 11.5px; color: #ffd166; }
+/* launch angle: green, like a scored ball, and deliberately not the camera's amber */
+#launcherInline #launchPitch { flex: 1; min-width: 90px; max-width: 150px; accent-color: #8ce07a; }
+#launcherInline .launchdeg { min-width: 34px; text-align: right; font-size: 11.5px; color: #8ce07a; }
 .camstatus { font-size: 10.5px; color: #7a8698; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .camstatus.live { color: #7ee2a0; }
 .camstatus.free { color: #ffd166; }
@@ -58,7 +61,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; fon
 #dsPanel .tellines { flex: 1; min-height: 120px; max-height: none; }
 .pdivider { height: 1px; background: #2c3442; margin: 2px 0; }
 
-/* centre column: pose strip + field event stacked, so one can collapse under the other */
+/* centre column: pose strip + biobuzz stacked, so one can collapse under the other */
 #centerCol {
   position: absolute; pointer-events: none;
   top: calc(var(--hdr, 78px) + 8px); left: 424px; right: 424px;
@@ -66,7 +69,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; fon
 }
 #centerCol .panel { position: static; pointer-events: auto; }
 #posePanel { resize: horizontal; overflow: auto; min-width: 430px; }
-#fieldEventPanel { resize: horizontal; overflow: auto; min-width: 320px; }
+#bioBuzzPanel { resize: horizontal; overflow: auto; min-width: 320px; }
 
 /* Pose · View — flat side-by-side split (pose left, view right); stretch to the hardware panel */
 .pvsplit { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
@@ -237,14 +240,14 @@ button.active { background: #2b4a7a; border-color: #4f8cff; color: #fff; }
 .chk { font-size: 12px; color: #cfd6e2; display: flex; align-items: center; gap: 4px; }
 .chkrow { font-size: 12px; }
 button.mini { padding: 2px 8px; font-size: 11.5px; line-height: 1.5; }
+select.mini { background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px; padding: 2px 6px; font-size: 11.5px; line-height: 1.5; cursor: pointer; }
 
-#fieldOptions label { font-size: 11.5px; color: #b8c2d0; display: flex; align-items: center; gap: 4px; }
-/* field-event controls ride on the title row to save vertical space */
-#fieldEventPanel .ptitle { padding-right: 34px; }
-.fe-inline { flex: 1; min-width: 0; flex-wrap: wrap; }
-.fe-inline label { white-space: nowrap; }
-.panel.collapsed #fieldOptions { display: none !important; }
-#fieldOptions select {
+#bioBuzzOptions label { font-size: 11.5px; color: #b8c2d0; display: flex; align-items: center; gap: 4px; }
+/* biobuzz controls ride on the title row to save vertical space */
+.bbInline { flex: 1; min-width: 0; flex-wrap: wrap; }
+.bbInline label { white-space: nowrap; }
+.panel.collapsed #bioBuzzOptions { display: none !important; }
+#bioBuzzOptions select {
   background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px;
   padding: 2px 6px; font-size: 11.5px;
 }
