@@ -56,10 +56,8 @@
       "params": {"motorType": "goBILDA_6000", "inertia": 0.00025, "viscousFriction": 2e-05, "coulombFriction": 0.004,
         "mount": {"x": -6.5, "y": 7.6, "z": 8.0, "axis": "z", "shape": "cylinder", "diameterIn": 1.4, "lengthIn": 2.2},
         "launcher": {
-          "exit": { "x": -4.5, "y": 0.0, "z": 8.0 },
           "speedFrom": "launchLeft",
-          "wheelDiameterIn": 1.4,
-          "slip": 0.85,
+          "speedInPerSec": 225,
           "pitchDeg": 65,
           "ballRadiusIn": 1.4,
           "capacity": 4,
