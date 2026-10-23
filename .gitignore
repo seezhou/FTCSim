@@ -9,3 +9,4 @@ build/
 tools/node_modules
 biobuzz_gm/
 .codebuddy/
+*/bin/
