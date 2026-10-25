@@ -1,4 +1,5 @@
-// Syntax-checks the 3D ES modules the way the browser loads them.
+// Syntax-checks the web front ends: the 3D ES modules the way the browser loads them, plus the
+// classic script of the 2D view.
 //
 // Node's --check with --input-type=module is the honest test: stripping the import lines (as an
 // earlier version of this did) makes a file that references an unimported `THREE` look fine, which
@@ -12,8 +13,10 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const web = join(dirname(fileURLToPath(import.meta.url)), '..', 'sim', 'src', 'main', 'resources', 'web', '3d');
+const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'sim', 'src', 'main', 'resources', 'web');
+const web = join(webRoot, '3d');
 const files = readdirSync(web).filter(f => f.endsWith('.js'));
+const classic = ['2d/app.js'];
 const tmp = mkdtempSync(join(tmpdir(), 'ftcsim-webcheck-'));
 let failed = 0;
 
@@ -33,6 +36,17 @@ for (const f of files) {
   }
 }
 
+for (const rel of classic) {
+  try {
+    execFileSync(process.execPath, ['--check', join(webRoot, rel)], { stdio: 'pipe' });
+    console.log(`OK      ${rel} (classic)`);
+  } catch (e) {
+    failed++;
+    console.log(`BROKEN  ${rel} (classic)`);
+    console.log('  ' + (e.stderr?.toString().split('\n').slice(0, 4).join('\n  ') || e.message));
+  }
+}
+
 rmSync(tmp, { recursive: true, force: true });
-console.log(failed ? `\n${failed} file(s) failed` : `\nall ${files.length} modules parse`);
+console.log(failed ? `\n${failed} file(s) failed` : `\nall ${files.length} modules and ${classic.length} classic script(s) parse`);
 process.exitCode = failed ? 1 : 0;

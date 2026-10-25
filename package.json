@@ -1,0 +1,17 @@
+{
+  "name": "ftcsim-tools",
+  "private": true,
+  "type": "module",
+  "description": "Node tools and browser tests for FTCSim",
+  "scripts": {
+    "check": "node tools/check-web.mjs",
+    "docs": "node tools/docs-check.mjs",
+    "docs:update": "node tools/docs-check.mjs --update",
+    "docs:check": "node tools/docs-check.mjs --check",
+    "ui": "node tools/ui-test.mjs",
+    "field": "node tools/ui-field-test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
+  }
+}

@@ -81,6 +81,10 @@ Both carry the same Driver Station, hardware, telemetry, config and log panels, 
 rendering differs. The 2D view additionally has the two on-screen gamepads with their sticks and the
 rumble indicator; the 3D view uses the physical controller directly.
 
+The 2D view is a generic top-down map: it draws the obstacles and AprilTags in the field message and
+the season option panel, but not season-specific structures such as the BIOBUZZ CELLs and HIVEs.
+Those, and the robot camera panel, are drawn only in 3D.
+
 | Keys | Gamepad |
 |------|---------|
 | W / S, A / D | left stick Y / X |
@@ -227,18 +231,37 @@ starts. (The camera panel's pitch slider is the camera's alone.)
 ## Tests
 
 ```bash
-./gradlew test                                            # physics and hardware unit tests
-node tools/check-web.mjs                                 # parse the 3D ES modules
-node tools/wsclient.mjs 8000 BlueTeleOp 4                 # drive an OpMode over the WebSocket API
-node tools/run-all.mjs 8000 4                             # init/start/stop every OpMode
-node tools/verify-3d-probe.mjs                            # what the 3D page built, and where
+./gradlew test                                           # unit tests plus the WebSocket protocol test
+node tools/check-web.mjs                                 # parse the web modules
+node tools/docs-check.mjs --check                        # fail if a documented code reference drifted
+node tools/wsclient.mjs 8000 BlueTeleOp 4                # drive an OpMode over the WebSocket API
+node tools/run-all.mjs 8000 4                            # init/start/stop every OpMode
+node tools/verify-3d-probe.mjs                           # what the 3D page built, and where
 ```
+
+`./gradlew test` includes `SimulatorProtocolTest`, which starts the simulator in a child JVM with a
+temporary BIOBUZZ config, so it needs no team repository (the missing-repo path is what CI uses). It
+checks the `hello` field description, an option change, and a reset over the real WebSocket protocol.
 
 The `verify-*` scripts drive the real page in headless Chrome and assert on what it draws: the
 declared parts and their poses, the colour encoding, the chassis geometry, and the launcher firing
 end to end from the team's TeleOp. They locate Chrome through `$FTCSIM_CHROME` (or the platform
 default) and write screenshots to `build/`, so they need no npm install. Run them against a server
 already started with `./gradlew run`.
+
+The Playwright-driven tests do need a local install:
+
+```bash
+npm install
+npx playwright install chromium
+node tools/ui-field-test.mjs 8000 biobuzz   # 3D + 2D against a BIOBUZZ simulator
+node tools/ui-field-test.mjs 8000 decode    # the same against a DECODE one
+node tools/ui-test.mjs 8000 BlueTeleOp      # drive a TeleOp through the page
+```
+
+`ui-field-test.mjs` selects season options in both views and checks that the choice reaches the
+backend and comes back to the rendering; in biobuzz mode it also checks the CELL/HIVE layout and the
+HIVE swing, in decode mode the visible obelisk face. It writes screenshots to `build/ui-field/`.
 
 ## License
 

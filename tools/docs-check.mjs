@@ -21,10 +21,9 @@
 // (every -Update rewrote them even when the referenced code was unchanged).
 //
 // Usage:
-//   node tools/docs-check.mjs            # check and report
+//   node tools/docs-check.mjs            # check and report (exit 0 even on drift)
+//   node tools/docs-check.mjs --check    # CI gate: exit 1 on changed/missing/unanchored refs
 //   node tools/docs-check.mjs --update   # recompute hashes and rewrite the docs
-//
-// Exit code is 0 even when there is drift — this is a report, not a gate.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -32,6 +31,12 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const update = process.argv.includes('--update') || process.argv.includes('-Update');
+const check = process.argv.includes('--check');
+
+if (update && check) {
+  console.error('--update rewrites the baseline; --check verifies it. Run them separately.');
+  process.exit(2);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -146,6 +151,7 @@ for (const docPath of docs) {
     if (!r.anchor) {
       report.push('  NO-ANCHOR     ' + r.path);
       stats.noAnchor++;
+      docChanged = true;
       continue;
     }
     let idx = -1;
@@ -211,5 +217,14 @@ if (update) {
   } else {
     console.log('');
     console.log('All referenced code matches what the docs were written against.');
+  }
+  if (check) {
+    if (stats.changed > 0 || stats.missing > 0 || stats.noAnchor > 0) {
+      console.log('');
+      console.log('FAILED: documentation references drifted (--check).');
+      process.exitCode = 1;
+    } else {
+      console.log('CI gate: documentation references are current.');
+    }
   }
 }
