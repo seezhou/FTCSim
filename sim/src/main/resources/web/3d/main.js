@@ -12,7 +12,7 @@ import { startRobotDrag } from './drag.js';
 import { createOverlay } from './overlay.js';
 import { createBalls } from './balls.js';
 import { createPanels } from './panels.js';
-import { createWebcam, parseMount, parseDetections } from './webcam.js';
+import { createWebcam, parseMount, parseDetections, setMinFacing } from './webcam.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -116,6 +116,7 @@ function handle(m) {
       fieldName = m.field?.name || '';
       $('fieldPill').textContent = `${fieldName} · ${m.configName || ''}`;
       field.rebuild(m.field);
+      setMinFacing(m.field?.aprilTagMinFacing);
       robot.setSpec({ ...(m.robot || {}), startPose: m.startPose });
       renderBioBuzz(m.field);
       $('camHint').classList.add('hidden');
@@ -126,6 +127,7 @@ function handle(m) {
       fieldName = m.field?.name || '';
       $('fieldPill').textContent = fieldName;
       field.rebuild(m.field);
+      setMinFacing(m.field?.aprilTagMinFacing);
       renderBioBuzz(m.field);
       break;
     case 'state':

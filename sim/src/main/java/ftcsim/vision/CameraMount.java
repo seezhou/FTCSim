@@ -19,4 +19,13 @@ public final class CameraMount {
     @Override public String toString() {
         return String.format("(%.1f, %.1f, %.1f) in yaw %.0f pitch %.0f fov %.0fx%.0f", xIn, yIn, zIn, yawDeg, pitchDeg, hfovDeg, vfovDeg);
     }
+
+    /** Structured mount for the frontend (replaces parsing the formatted toString()). */
+    public java.util.Map<String, Object> toView() {
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("xIn", xIn); m.put("yIn", yIn); m.put("zIn", zIn);
+        m.put("yawDeg", yawDeg); m.put("pitchDeg", pitchDeg);
+        m.put("hfovDeg", hfovDeg); m.put("vfovDeg", vfovDeg);
+        return m;
+    }
 }

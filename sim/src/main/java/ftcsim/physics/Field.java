@@ -290,6 +290,20 @@ public final class Field {
     public static final int HIVE_TIP_BALLS = 4;
     public static final String RED = "#d93b2b", BLUE = "#2b5fd9", YELLOW = "#e8c547";
 
+    /** Structured CELL/HIVE geometry for the 3D view. Sent verbatim in the backend's
+     *  fieldMessage so the frontend stops hand-copying these BIOBUZZ constants. */
+    public static java.util.Map<String, Object> cellGeometry() {
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("pent", CELL_PENT);
+        m.put("depth", CELL_DEPTH_IN);
+        m.put("bottom", CELL_BOTTOM_IN);
+        m.put("armDrop", CELL_CENTER_ABOVE_ARM);
+        m.put("hivePivotZ", HIVE_PIVOT_Z);
+        m.put("hiveY", HIVE_Y);
+        m.put("hiveTiltDeg", HIVE_TILT_DEG);
+        return m;
+    }
+
     public static Field biobuzz() {
         Field f = new Field();
         f.name = "BIOBUZZ";

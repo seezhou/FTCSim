@@ -41,5 +41,5 @@ public class SimWebcamName implements WebcamName, SimDevice {
     @Override public String simType() { return "WebcamName"; }
     @Override public String simHub() { return "Control Hub"; }
     @Override public int simPort() { return 0; }
-    @Override public void fillView(Map<String, Object> v) { v.put("attached", true); v.put("mount", mount.toString()); }
+    @Override public void fillView(Map<String, Object> v) { v.put("attached", true); v.put("mount", mount.toView()); }
 }

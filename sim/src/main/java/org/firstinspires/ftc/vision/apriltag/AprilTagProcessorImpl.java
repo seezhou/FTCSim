@@ -36,6 +36,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class AprilTagProcessorImpl extends AprilTagProcessor implements SimVisionProcessor {
     public static final String TAG = "AprilTagProcessorImpl";
+    /** Minimum facing dot-product for a tag to be considered visible (see Camera.see). */
+    public static final double MIN_FACING = 0.25;
 
     private final OpenGLMatrix cameraPoseInverse;
     private final double fx, fy;
@@ -195,7 +197,7 @@ public class AprilTagProcessorImpl extends AprilTagProcessor implements SimVisio
         for (AprilTagMetadata meta : tagLibrary.getAllTags()) {
             Placement t = placement(meta);
             if (t == null) continue;
-            Sight s = cam.see(t.x, t.y, t.z, t.yawDeg, 0.25);
+            Sight s = cam.see(t.x, t.y, t.z, t.yawDeg, MIN_FACING);
             if (s == null) continue;
             double apparentPx = t.sizeIn * cam.focal / s.range3 * s.facing;
             if (apparentPx < 6) continue;

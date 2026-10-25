@@ -19,13 +19,12 @@
 //    every frame of both views (flicker + wasted work). The main view keeps full shadows.
 import * as THREE from 'three';
 
-// ftcsim.hardware.SimWebcamName reports its mount as one formatted string:
-//   "(6.0, 0.0, 10.0) in yaw 0 pitch 60 fov 76x43"
-const MOUNT_RE = /\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)\s*in\s*yaw\s*(-?[\d.]+)\s*pitch\s*(-?[\d.]+)\s*fov\s*(-?[\d.]+)x(-?[\d.]+)/;
 // "AprilTagProcessorImpl tags [35, 36, RED SCORING 100%]"
 const TAGS_RE = /tags\s*\[([^\]]*)\]/;
-// the same visibility test the backend detector applies (AprilTagProcessorImpl.Camera.see)
-const MIN_FACING = 0.25;
+// The backend sends its AprilTag min-facing threshold in fieldMessage.aprilTagMinFacing;
+// this is only a fallback if that field is missing (older sim build).
+let minFacing = 0.25;
+export function setMinFacing(v) { if (typeof v === 'number') minFacing = v; }
 
 export function createWebcam({ scene, robot, canvas, overlay }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -105,7 +104,7 @@ export function createWebcam({ scene, robot, canvas, overlay }) {
     _n.set(0, 0, 1).applyQuaternion(_q);            // a tag plane faces along its +Z
     _wp.setFromMatrixPosition(mesh.matrixWorld);
     _toCam.subVectors(camWorld, _wp).normalize();
-    return _n.dot(_toCam) >= MIN_FACING;
+    return _n.dot(_toCam) >= minFacing;
   }
 
   let drawn = 0;
@@ -185,15 +184,17 @@ export function createWebcam({ scene, robot, canvas, overlay }) {
   };
 }
 
-/** Pull the WebCam mount out of a device list (the WebcamName device card). */
+/** Pull the WebCam mount out of a device list (the WebcamName device card).
+ *  The backend now sends the mount as a structured object (CameraMount.toView),
+ *  so no string regex is needed. */
 export function parseMount(devices) {
   for (const d of devices || []) {
     if (!/webcam/i.test(d.type || '')) continue;
-    const m = MOUNT_RE.exec((d.values || {}).mount || '');
-    if (!m) continue;
+    const mt = (d.values || {}).mount;
+    if (!mt || typeof mt !== 'object') continue;
     return {
-      name: d.name, xIn: +m[1], yIn: +m[2], zIn: +m[3],
-      yawDeg: +m[4], pitchDeg: +m[5], hfovDeg: +m[6], vfovDeg: +m[7],
+      name: d.name, xIn: +mt.xIn, yIn: +mt.yIn, zIn: +mt.zIn,
+      yawDeg: +mt.yawDeg, pitchDeg: +mt.pitchDeg, hfovDeg: +mt.hfovDeg, vfovDeg: +mt.vfovDeg,
     };
   }
   return null;

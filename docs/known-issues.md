@@ -11,22 +11,6 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 ## 待修（代码）
 
-### 3. 前端硬编码了一整组赛季常量，与后端逐字重复
-
-- **位置**：`web/3d/field.js:232-240`（`CELL_PENT`、`CELL_DEPTH`、`CELL_BOTTOM`、`CELL_ARM_DROP`、`HIVE_PIVOT_Z`、`HIVE_Y`、`HIVE_TILT`）；另 `web/3d/webcam.js:28`（`MIN_FACING = 0.25`）
-- **问题**：前一组与后端 `Field.java:246/252-253` 数值完全重复；`MIN_FACING` 与后端 `AprilTagProcessorImpl.Camera.see()` 的标签朝向阈值重复
-- **影响**：换赛季要改两处且容易不同步；更隐蔽的是——改后端判定阈值时若忘了前端，会出现"程序检出了但画面没框"或反之
-- **建议**：几何数值只保留一份在后端，经 `fieldMessage` 下发给前端（与 `tags` / `obstacles` 同样的做法）
-- **优先级**：中。建议并入 #5 的赛季剥离工作一起处理（详见 `seasons/01-season-abstraction.md`）
-
-### 4. 相机 mount 用正则拆字符串，而设备 mount 是结构化对象
-
-- **位置**：`web/3d/webcam.js:24`（`MOUNT_RE`）、`:189-200`（`parseMount`）
-- **问题**：电机/伺服的 `DeviceMount` 下发的是结构化 JSON（`DeviceMount.toView()`），前端直接读字段；而相机 mount 是 `SimWebcamName` 报的一个格式化字符串，前端只能靠正则拆
-- **影响**：后端格式一变（加字段、改分隔符）正则即失效
-- **建议**：后端把相机 mount 也改成结构化对象下发
-- **优先级**：低
-
 ### 5. 赛季代码泄漏进了通用类
 
 - **位置**：`Projectile.java:190-249`（BIOBUZZ CELL 五边形碰撞）、`World.java:180-182`（`onGoalReached` 用 if 区分赛季）、`:232-245`（HIVE 倾覆）、`Field.java:246/252/290`（赛季常量）
@@ -52,6 +36,8 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 | 结论 9：tip-ball 数字同步核查 | `notes/research/sim-physics-research-notes.md` | 全文 `HIVE_TIP_BALLS` 零命中，研究笔记从未引用该数字，无需同步；3/4 球更正已在 `docs/launcher/01-ball-launcher.md` 完成 |
 | #1 场地尺寸 72 硬编码三处 | `web/3d/field.js`（buildShell/rebuild + 新增 getHalfField）、`web/3d/drag.js`（LIMIT 改读 getHalfField）、`Simulator.java:408` | 前端改用后端已下发的 `sizeIn` 取半场，保留 72 兜底；`drag.js` 拖拽边界同样走动态半场。原"后端发了前端没用"已修复 |
 | #2 rumbleIndicator 无效行 | `web/3d/gamepad.js:174` | 删除 `toggle('hidden', false)` 无效行；徽标显示实际由 CSS `.gamepad.rumbling` 控制（`gamepad.js:173` 的 `toggle('rumbling', on)` 才生效） |
+| #3 前端硬编码赛季常量与后端重复 | `web/3d/field.js`、`web/3d/webcam.js` + 后端 `Field.java`(`cellGeometry()`)、`CameraMount.java`(`toView()`)、`SimWebcamName.java`、`AprilTagProcessorImpl.java`(`MIN_FACING`)、`Simulator.java`(`fieldMessage` 补发 `cellGeometry`/`aprilTagMinFacing`) | 后端 `Field.cellGeometry()` 下发 CELL/HIVE 几何，`CameraMount.toView()` 下发结构化 mount，`AprilTagProcessorImpl.MIN_FACING` 下发阈值；前端 `field.js` 删除手抄常量改读 `cellGeom`（由 `fieldMessage.cellGeometry` 注入，保留兜底值），`webcam.js` 删除 `MOUNT_RE` 正则、`parseMount` 改读结构化对象、`minFacing` 由 `setMinFacing` 接收 |
+| #4 相机 mount 正则拆字符串 | `web/3d/webcam.js`(`MOUNT_RE`/`parseMount`) + 后端 `SimWebcamName.java`(`fillView`)、`CameraMount.java`(`toView()`) | 后端把相机 mount 改为结构化对象下发（`CameraMount.toView()`），前端 `parseMount` 读结构化字段、删除正则；`MIN_FACING` 阈值改由后端 `aprilTagMinFacing` 下发（`setMinFacing`），不再硬编码 |
 | #6 obstacle 高度未下发 | `Simulator.java:408` + 前端 `web/3d/field.js:199` | 后端 `fieldMessage` 补发 `height`；前端 `obstacleHeight()` 本就优先读 `o.height`，如今生效，不再按名字猜高度 |
 
 ---

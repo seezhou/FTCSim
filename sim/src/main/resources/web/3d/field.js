@@ -233,15 +233,13 @@ export function createField(scene) {
   // facing. In the backend's cluster frame the origin is the pentagon centre and the
   // tag stickers sit on the front face (5.622 in along the facing), so the glass panel
   // front face is put exactly at the tag plane and the tags land flush on it.
-  const CELL_PENT = [[-10, -9.938], [10, -9.938], [10, -2.328], [0, 4.062], [-10, -2.328]];
-  const CELL_DEPTH = 11.244;
   const CELL_TUBE_R = 0.65;     // red edge-frame tube radius
-  const CELL_BOTTOM = 9.938;    // bottom face below the pentagon centre
-  const CELL_MOUTH = CELL_DEPTH / 2;  // mouth (opening) plane along the facing
-  const CELL_ARM_DROP = 5.6375; // arm line below the pentagon centre (Field.java CELL_CENTER_ABOVE_ARM)
-  const HIVE_PIVOT_Z = 43.95;   // pivot axis height (Field.java HIVE_PIVOT_Z)
-  const HIVE_Y = 12.75;         // pivot distance from the field centre (Field.java HIVE_Y)
-  const HIVE_TILT = Math.PI / 6;    // 30° — each bi-stable rest position of the see-saw
+  // CELL/HIVE geometry now comes from the backend fieldMessage.cellGeometry (source of truth).
+  // The values below are a fallback only used if an older sim build omits it.
+  let cellGeom = {
+    pent: [[-10, -9.938], [10, -9.938], [10, -2.328], [0, 4.062], [-10, -2.328]],
+    depth: 11.244, bottom: 9.938, armDrop: 5.6375, hivePivotZ: 43.95, hiveY: 12.75, hiveTiltDeg: 30,
+  };
 
   /** Thin round tube from a to b (three.js local coords) — one edge of a frame. */
   function addEdgeTube(parent, a, b, mat, r = CELL_TUBE_R) {
@@ -264,7 +262,7 @@ export function createField(scene) {
     if (!a || !a.group) {
       const g = new THREE.Group();
       g.name = 'hive-' + prefix;
-      g.position.copy(ftc(0, prefix === 'RED' ? -HIVE_Y : HIVE_Y, HIVE_PIVOT_Z));
+      g.position.copy(ftc(0, prefix === 'RED' ? -cellGeom.hiveY : cellGeom.hiveY, cellGeom.hivePivotZ));
       root.add(g);
       if (!a) a = hiveAssemblies[prefix] = { shown: null, rot: 0 };
       a.group = g;
@@ -288,14 +286,14 @@ export function createField(scene) {
       const shellMat = new THREE.MeshStandardMaterial({
         color, transparent: true, opacity: 0.2, roughness: 0.45, metalness: 0,
         side: THREE.DoubleSide, depthWrite: false });
-      const half = CELL_DEPTH / 2;
+      const half = cellGeom.depth / 2;
       const backPanel = new THREE.Mesh(
-        new THREE.ShapeGeometry(new THREE.Shape(CELL_PENT.map(([u, v]) => new THREE.Vector2(u, v)))),
+        new THREE.ShapeGeometry(new THREE.Shape(cellGeom.pent.map(([u, v]) => new THREE.Vector2(u, v)))),
         shellMat);
       backPanel.position.z = -half;
       cell.add(backPanel);
-      for (let i = 0; i < CELL_PENT.length; i++) {
-        const [u1, v1] = CELL_PENT[i], [u2, v2] = CELL_PENT[(i + 1) % CELL_PENT.length];
+      for (let i = 0; i < cellGeom.pent.length; i++) {
+        const [u1, v1] = cellGeom.pent[i], [u2, v2] = cellGeom.pent[(i + 1) % cellGeom.pent.length];
         const wall = new THREE.Mesh(new THREE.BufferGeometry(), shellMat);
         wall.geometry.setAttribute('position', new THREE.Float32BufferAttribute([
           u1, v1, -half, u2, v2, -half, u2, v2, half,
@@ -310,8 +308,8 @@ export function createField(scene) {
       // tunnel from oblique angles; the manual render shows edge tubes with the whole
       // interior and both sides open (fig 9-11).
       const frameMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.2 });
-      const front = CELL_PENT.map(([u, v]) => new THREE.Vector3(u, v, CELL_DEPTH / 2));
-      const back = CELL_PENT.map(([u, v]) => new THREE.Vector3(u, v, -CELL_DEPTH / 2));
+      const front = cellGeom.pent.map(([u, v]) => new THREE.Vector3(u, v, cellGeom.depth / 2));
+      const back = cellGeom.pent.map(([u, v]) => new THREE.Vector3(u, v, -cellGeom.depth / 2));
       for (let i = 0; i < front.length; i++) {
         const j = (i + 1) % front.length;
         addEdgeTube(cell, front[i], front[j], frameMat);
@@ -328,7 +326,7 @@ export function createField(scene) {
           map: stickerTexture(cl.name, '#' + color.toString(16).padStart(6, '0')),
           side: THREE.DoubleSide }));
       sticker.name = 'sticker-' + cl.name;
-      sticker.position.set(0, -CELL_BOTTOM - 0.05, -0.5);
+      sticker.position.set(0, -cellGeom.bottom - 0.05, -0.5);
       sticker.rotation.x = Math.PI / 2;  // plane faces -up (down), texture up = +n (mouth)
       cell.add(sticker);
       // a CELL rotates with its HIVE: parent it to the alliance's see-saw assembly
@@ -347,7 +345,7 @@ export function createField(scene) {
     const beamMat = new THREE.MeshStandardMaterial({ color: '#8a93a6', roughness: 0.55, metalness: 0.25 });
     // central pivot bar along FTC Y (three Z) at x=0, height 43.95 in (Field.java HIVE_PIVOT_Z)
     const bar = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 49.5), frameMat);
-    bar.position.set(0, 43.95, 0);
+    bar.position.set(0, cellGeom.hivePivotZ, 0);
     root.add(bar);
     // frame per manual 9.6.1 + fig 9-7: two triangular metal structures, each standing
     // on a full-width floor rail (the "under TILE strip" = the HIVE foot-bar obstacle
@@ -356,8 +354,8 @@ export function createField(scene) {
     const FRAME_R = 1.0, FOOT_H = 1.5;  // FOOT_H = foot-bar obstacle height
     for (const bz of [-24, 24]) {
       addEdgeTube(root, new THREE.Vector3(-19.475, FOOT_H, bz), new THREE.Vector3(19.475, FOOT_H, bz), frameMat, FRAME_R);
-      addEdgeTube(root, new THREE.Vector3(-19.475, FOOT_H, bz), new THREE.Vector3(0, 43.95, bz), frameMat, FRAME_R);
-      addEdgeTube(root, new THREE.Vector3(19.475, FOOT_H, bz), new THREE.Vector3(0, 43.95, bz), frameMat, FRAME_R);
+      addEdgeTube(root, new THREE.Vector3(-19.475, FOOT_H, bz), new THREE.Vector3(0, cellGeom.hivePivotZ, bz), frameMat, FRAME_R);
+      addEdgeTube(root, new THREE.Vector3(19.475, FOOT_H, bz), new THREE.Vector3(0, cellGeom.hivePivotZ, bz), frameMat, FRAME_R);
     }
     // one see-saw beam per alliance, through the pivot and OUT to each CELL — the rod connects
     // the two boxes: it stops just short of each box's back face and a short link drops from
@@ -371,12 +369,12 @@ export function createField(scene) {
       const ends = [a, s].map(cl => {
         const { up, n } = cellBasis(cl);
         const centre = ftc(cl.x, cl.y, cl.z);
-        const arm = centre.clone().addScaledVector(up, -CELL_ARM_DROP);
+        const arm = centre.clone().addScaledVector(up, -cellGeom.armDrop);
         const dir = arm.clone().sub(pivot).normalize();
         // bottom-back edge of the box (the mouth is the +n face)
         const edge = centre.clone()
-          .addScaledVector(up, -CELL_BOTTOM)
-          .addScaledVector(n, -CELL_MOUTH);
+          .addScaledVector(up, -cellGeom.bottom)
+          .addScaledVector(n, -cellGeom.depth / 2);
         const end = pivot.clone().addScaledVector(dir, edge.clone().sub(pivot).dot(dir) - 1.2);
         return { end, edge, dir };
       });
@@ -404,7 +402,7 @@ export function createField(scene) {
     for (const prefix of ['RED', 'BLUE']) {
       const a = hiveAssemblies[prefix];
       if (!a) continue;
-      const target = st[prefix.toLowerCase() + 'Hive'] === 'scoring' ? -HIVE_TILT : HIVE_TILT;
+      const target = st[prefix.toLowerCase() + 'Hive'] === 'scoring' ? -cellGeom.hiveTiltDeg * Math.PI / 180 : cellGeom.hiveTiltDeg * Math.PI / 180;
       if (a.shown === null) { a.shown = target; a.rot = 0; }
       else a.rot = a.shown - target;   // start the swing from wherever we displayed last
       a.shown = target;
@@ -446,7 +444,7 @@ export function createField(scene) {
         const origin = ftc(cl.x, cl.y, cl.z);
         const d = pos.clone().sub(origin);
         // local x = across (the row), y = up, z = mouth: keep the tag's offset along the row
-        pos.set(d.dot(across), -CELL_BOTTOM - 0.15, 0);
+        pos.set(d.dot(across), -cellGeom.bottom - 0.15, 0);
         // the same pose as the sticker: flat on the bottom face, facing down, texture up toward
         // the mouth. The CELL group already carries the orientation, so this is local: the plane's
         // +z normal turns to -y (down) and its "up" edge turns to +z (toward the mouth).
@@ -557,6 +555,7 @@ export function createField(scene) {
     labelMeshes.length = 0;
     if (typeof fieldMsg.sizeIn === 'number' && fieldMsg.sizeIn > 0) halfField = fieldMsg.sizeIn / 2;
     else halfField = HALF;
+    if (fieldMsg.cellGeometry) cellGeom = fieldMsg.cellGeometry;
     buildShell(fieldMsg.name);
     buildZones(fieldMsg.zones);
     buildObstacles(fieldMsg.obstacles);
