@@ -93,6 +93,7 @@ summary: 文档总索引：按主题分类的入口、建议阅读路线与维�
 
    ```bash
    node tools/docs-check.mjs            # 报告：哪些文档的哪些引用已经变化
+   node tools/docs-check.mjs --check    # CI 门禁：有引用漂移时退出码为 1
    node tools/docs-check.mjs --update   # 文档修订完后，重新记录基准（刷新 hash）
    ```
 

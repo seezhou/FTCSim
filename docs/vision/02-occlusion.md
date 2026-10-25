@@ -43,9 +43,9 @@ refs:
 |---|---|---|
 | 相机位姿（世界位置 + 朝向） | ✅ | `simFrame` 由 `SimVision.robotPose()`（`:166`）→ `camWorld/camYaw/camPitch/camZ`（`:185-187`）算出 |
 | 每个候选 tag 的世界位姿 | ✅ | `placement()`（`:141-163`）→ x,y,z,yawDeg,sizeIn；`see()` 已算相机系 `xF/yF/zF`、像素 `txp/typ`（`:133-136`） |
-| 场地结构（障碍物） | ✅ | `SimVision.field().obstacles`（Field.java:146），每个 `Obstacle` 是轴对齐盒 + 高度（`:18-26`） |
+| 场地结构（障碍物） | ✅ | `SimVision.field().obstacles`（Field.java:148），每个 `Obstacle` 是轴对齐盒 + 高度（`:18-26`） |
 | 其他 tag 作为遮挡物 | ✅ | `tagLibrary.getAllTags()` / `field.tags`（带 yaw 和 size 的矩形平面） |
-| CELL / cluster 盒作为遮挡物 | ✅（几何更细） | `Field.Cluster`（`:66-120`）、`CELL_PENT`/`pentagonSd`/`pentagonClosest`（Field.java:252-285） |
+| CELL / cluster 盒作为遮挡物 | ✅（几何更细） | `Field.Cluster`（`Field.java:68-122`）、`CELL_PENT`/`pentagonSd`/`pentagonClosest`（`BiobuzzRules.java:30-71`） |
 | 机器人外伸臂遮挡 | ❌ | `DeviceMount`（DeviceMount.java:22-93）描述关节/形状，但未装配成 vision 用的世界变换；`robotPose()` 仅 `Pose2` |
 
 **结论**：tag-tag 和 障碍物-tag 两类遮挡所需的全部几何输入都已现成，缺的只是判定代码，以及"全部隐藏 vs 部分置信度"的策略选择。复用先例：`DistanceModel.rayToAabb(Vec2 o, Vec2 d, …)`（`:42-55`）已是 2D 射线–AABB slab 求交，`measureMm()`（`:25-39`）已用它对"围墙 + 所有 obstacles"做射线——只需扩成 3D（z 方向加 `[0, height]` 两个 slab）即可用于遮挡测试。

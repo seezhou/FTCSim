@@ -1,5 +1,5 @@
 ---
-summary: 已知问题与待办：文档与代码不一致之处、代码待修项，以及文档保鲜机制的设计
+summary: 已知问题与待办：文档与代码不一致之处、代码待修项，以及文档保鲜机制的现状
 ---
 
 # 已知问题与待办
@@ -21,6 +21,14 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 ---
 
+## 已知限制（非缺陷）
+
+| 限制 | 位置 | 说明 |
+|---|---|---|
+| 2D 视图不渲染赛季专属结构 | `web/2d/app.js` | 2D 只画通用 `f.obstacles` / `f.tags` 和选项面板；BIOBUZZ 的 CELL/HIVE、机器人相机面板只在 3D 视图。README 已注明；若要在 2D 补画这些几何，属于新增前端特性。 |
+
+---
+
 ## 已修（整理时顺手改掉）
 
 | 问题 | 位置 | 处理 |
@@ -32,19 +40,36 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 | #2 rumbleIndicator 无效行 | `web/3d/gamepad.js:174` | 删除 `toggle('hidden', false)` 无效行；徽标显示实际由 CSS `.gamepad.rumbling` 控制（`gamepad.js:173` 的 `toggle('rumbling', on)` 才生效） |
 | #3 前端硬编码赛季常量与后端重复 | `web/3d/field.js`、`web/3d/webcam.js` + 后端 `Field.java`(`cellGeometry()`)、`CameraMount.java`(`toView()`)、`SimWebcamName.java`、`AprilTagProcessorImpl.java`(`MIN_FACING`)、`Simulator.java`(`fieldMessage` 补发 `cellGeometry`/`aprilTagMinFacing`) | 后端 `Field.cellGeometry()` 下发 CELL/HIVE 几何（第一批剥离后改由 `BiobuzzRules.extraFieldData()` 提供），`CameraMount.toView()` 下发结构化 mount，`AprilTagProcessorImpl.MIN_FACING` 下发阈值；前端 `field.js` 删除手抄常量改读 `cellGeom`（由 `fieldMessage.cellGeometry` 注入，保留兜底值），`webcam.js` 删除 `MOUNT_RE` 正则、`parseMount` 改读结构化对象、`minFacing` 由 `setMinFacing` 接收 |
 | #4 相机 mount 正则拆字符串 | `web/3d/webcam.js`(`MOUNT_RE`/`parseMount`) + 后端 `SimWebcamName.java`(`fillView`)、`CameraMount.java`(`toView()`) | 后端把相机 mount 改为结构化对象下发（`CameraMount.toView()`），前端 `parseMount` 读结构化字段、删除正则；`MIN_FACING` 阈值改由后端 `aprilTagMinFacing` 下发（`setMinFacing`），不再硬编码 |
-| #5 赛季代码泄漏进通用类 | `Projectile`/`World`/`Field`/`Simulator` + 前端 `3d/main.js`、`3d/field.js`、`2d/app.js` | 两批均已剥离：几何/规则在 `BiobuzzRules`/`DecodeRules`，引擎经 `SeasonRules` 调用；注册表 `Field.FACTORIES` + `nameFromHint`；计分用 `rules.tipPoints()`/`scoreEventLabel()` 发通用 `field.event`；obelisk 可见性移入 `rules.isTagVisible()`；前端 `renderFieldOptions` + 通用事件 toast，删除 fallback 常量与 `sim.obelisk`。65/65 测试、浏览器 smoke 通过。详见 `seasons/01-season-abstraction.md` |
+| #5 赛季代码泄漏进通用类 | `Projectile`/`World`/`Field`/`Simulator` + 前端 `3d/main.js`、`3d/field.js`、`2d/app.js` | 两批均已剥离：几何/规则在 `BiobuzzRules`/`DecodeRules`，引擎经 `SeasonRules` 调用；注册表 `Field.FACTORIES` + `nameFromHint`；计分用 `rules.tipPoints()`/`scoreEventLabel()` 发通用 `field.event`；obelisk 可见性移入 `rules.isTagVisible()`；前端 `renderFieldOptions` + 通用事件 toast，删除 fallback 常量与 `sim.obelisk`。全部测试通过（当前 66/66，含 WebSocket 协议测试），浏览器 smoke 通过。详见 `seasons/01-season-abstraction.md` |
 | #6 obstacle 高度未下发 | `Simulator.java:408` + 前端 `web/3d/field.js:199` | 后端 `fieldMessage` 补发 `height`；前端 `obstacleHeight()` 本就优先读 `o.height`，如今生效，不再按名字猜高度 |
 
 ---
 
-## 关于"文档保鲜"（设计中的下一步）
+## 关于"文档保鲜"（已落地）
 
-目前文档与代码的关联只靠每篇末尾的"源码证据"（`文件:行号`），**行号会漂移、无法自动发现过时**。
-计划中的改进：
+文档末尾的"源码证据"仍是 `文件:行号`，行号会漂移；可自动校验的部分已改由 front matter 的
+`refs` 承担：
 
-1. 每篇加 front-matter 记录结构化 `refs`：`{ path, anchor, lines, hash, since }`
-   - `anchor`（如方法签名）用于重新定位，解决行号漂移；
-   - `hash` 对锚点起的片段计算，避免整文件改动牵连无关文档；
-   - `since`（写文档时的 commit）配合 `git diff` 直接看到"变成什么样了"。
-2. 配一个校验脚本，输出"哪些文档的哪些引用已变化"，并按严重度分级（锚点找不到 > 片段内容变化 > 仅 commit 前进）。
-3. 能写成断言的事实（hub 时延、默认常量）尽量落到 `sim/src/test/`，而不是只留在散文里——那是唯一不会脱节的保障。
+```yaml
+refs:
+  - path: sim/src/main/java/ftcsim/physics/World.java
+    anchor: "private void loop()"
+    hash: 1c9b9200be2d
+```
+
+- `anchor`（方法签名等稳定片段）用于**重新定位**，代码只是挪位置不会误报；
+- `hash` 只对锚点起的 40 行计算，文件其他位置改动不影响本引用；
+- 刻意不存 `lines` / `since`：它们每次编辑都会变，只会制造噪声 diff（旧字段会在
+  `--update` 时清除）。
+
+`tools/docs-check.mjs` 提供三种用法：
+
+| 命令 | 行为 | 退出码 |
+|---|---|---|
+| `node tools/docs-check.mjs` | 报告哪些引用变了，并给出 `git diff` 提示 | 始终 0 |
+| `node tools/docs-check.mjs --check` | CI 门禁：有引用变化 / 锚点丢失 / 未写 anchor 即失败 | 失败时 1 |
+| `node tools/docs-check.mjs --update` | 人工确认正文后刷新基准 hash | 0 |
+
+CI（`.github/workflows/ci.yml`）跑 `--check`，所以引用漂移会直接让构建变红。当前覆盖 18 篇文档、
+39 个引用，只锚定最核心的符号，不是全文每一处 `文件:行号`；散文里写死的事实（hub 时延、默认
+常量）仍应尽量落到 `sim/src/test/`，那是不依赖人工维护的保障。
