@@ -1,5 +1,16 @@
 ---
 summary: 通用引擎 vs 赛季专属的分层；泄漏点与剥离建议
+refs:
+  - path: sim/src/main/java/ftcsim/physics/Field.java
+    anchor: "public static Field byName(String name)"
+    lines: 170-177
+    hash: 0cba9b497f22
+    since: 2581a52
+  - path: sim/src/main/java/ftcsim/physics/Projectile.java
+    anchor: "private void resolveCell(Field.Cluster cl)"
+    lines: 203-249
+    hash: d26091e51d6b
+    since: 2581a52
 ---
 
 # 赛季可复用性分层图（通用引擎 / 几何数据 / 赛季插件）
@@ -23,7 +34,7 @@ flowchart TB
 
   subgraph B["B 几何数据层（填数据即可）"]
     B1["Field 通用基元<br/>Obstacle · AprilTag · Cluster<br/>Zone · Shape · Option · Goal"]
-    B2["Field.of(name) 注册表<br/>decode() / biobuzz() / empty()<br/>（现状：数值硬编码在 Java）"]
+    B2["Field.byName(name) 注册表<br/>decode() / biobuzz() / empty()<br/>（现状：数值硬编码在 Java）"]
     B1 --- B2
   end
 
@@ -50,7 +61,7 @@ flowchart TB
   class FE web
 ```
 
-**关键**：`Field.of(name)` 这个注册表（`Field.java:171-177`）**已经就位**——加新赛季 = 加一个 `case` + 一个工厂方法。而且选哪个场地是配置驱动的：`Simulator.java:157` 会按机器人配置名自动匹配（`contains("biobuzz")` → `BIOBUZZ`）。
+**关键**：`Field.byName(name)` 这个注册表（`Field.java:170-177`）**已经就位**——加新赛季 = 加一个 `case` + 一个工厂方法。而且选哪个场地是配置驱动的：`Simulator.java:157` 会按机器人配置名自动匹配（`contains("biobuzz")` → `BIOBUZZ`）。
 
 ---
 
@@ -190,7 +201,7 @@ flowchart TB
 
 ## 源码证据
 
-- 场地注册表与切换：`Field.java:171-177`（`of(name)`）、`:208`（`decode`）、`:230`（`empty`）、`:293`（`biobuzz`）；`Simulator.java:157`（按配置名自动选）；`World.java:20`（默认 `decode()`）
+- 场地注册表与切换：`Field.java:170-177`（`byName(name)`）、`:208`（`decode`）、`:230`（`empty`）、`:293`（`biobuzz`）；`Simulator.java:157`（按配置名自动选）；`World.java:20`（默认 `decode()`）
 - 赛季常量泄漏：`Field.java:246`（`CELL_DEPTH_IN`/`CELL_BOTTOM_IN`）、`:252-253`（`CELL_PENT`）、`:260-286`（`pentagonSd`/`pentagonClosest`）、`:190-195`（`cellSlotPosition`）、`:290`（`HIVE_TIP_BALLS`）
 - 物理层越界：`Projectile.java:190-249`（CELL 碰撞/捕获/随动）、`:252-258`（`rideInCell`）
 - 世界层越界：`World.java:180-182`（`onGoalReached` 分赛季）、`:216-225`（`checkCellCapture`/`capturedIn`）、`:232-245`（`tip`）
