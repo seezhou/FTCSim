@@ -20,6 +20,14 @@ import ftcsim.physics.World;
  * serves every launcher a team can configure.
  */
 public final class LauncherController {
+    /** Why a trigger did or did not release a ball. */
+    public enum FireResult { FIRED, BUSY, EMPTY, DISABLED }
+
+    /** What a trigger did: a released ball (and its speed), or why nothing left the launcher. */
+    public record Shot(FireResult result, double speed) {
+        public boolean fired() { return result == FireResult.FIRED; }
+    }
+
     private static final String TAG = "FTCSim";
     /** Simulated seconds between two shots, so one push cannot empty the magazine. */
     private static final double COOLDOWN_S = 0.25;
@@ -69,14 +77,17 @@ public final class LauncherController {
     /** One ball picked up off the floor: it goes back in the magazine, capped at its capacity. */
     public void collect() { if (spec != null && remaining < spec.capacity) remaining++; }
 
-    /** Fires the whole magazine as a salvo: the first ball now, the rest 0.5 s apart. */
-    public double fire() {
-        if (spec == null || remaining <= 0) return 0;
-        if (salvoLeft > 0) return 0;            // a salvo is already running
+    /** Fires the whole magazine as a salvo: the first ball now, the rest one interval apart.
+     *  A released ball can have zero speed (a launcher that does not read a flywheel), so callers
+     *  must look at {@link Shot#fired()} rather than the speed. */
+    public Shot fire() {
+        if (spec == null) return new Shot(FireResult.DISABLED, 0);
+        if (salvoLeft > 0) return new Shot(FireResult.BUSY, 0);   // a salvo is already running
+        if (remaining <= 0) return new Shot(FireResult.EMPTY, 0);
         salvoLeft = remaining;
         remaining = 0;
         salvoNextAt = world.simTime();
-        return releaseOne();
+        return new Shot(FireResult.FIRED, releaseOne());
     }
 
     /** Releases one ball of the current salvo at the live muzzle and velocity. Returns its speed. */
@@ -137,7 +148,7 @@ public final class LauncherController {
                 // The push feeds the ball into the wheel; it leaves when the wheel is fast enough.
                 // Waiting for minRpm instead of firing on the push itself is what stops a team's
                 // spin-up delay from throwing the ball at a fraction of the speed it should have.
-                if (pushPending && rpmReached() && fire() > 0) pushPending = false;
+                if (pushPending && rpmReached() && fire().fired()) pushPending = false;
             } else if (pos <= spec.triggerPosition - spec.triggerDelta) {
                 servoArmed = false;
                 pushPending = false;

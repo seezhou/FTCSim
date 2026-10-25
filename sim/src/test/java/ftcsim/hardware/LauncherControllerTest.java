@@ -61,7 +61,9 @@ public class LauncherControllerTest {
         // 2 in wheel at 6000 rpm, no slip: v = omega x radius
         LauncherController c = new LauncherController(w);
         c.configure(spec(launcher("speedFrom", FLYWHEEL, "wheelDiameterIn", 2.0, "slip", 1.0)));
-        double speed = c.fire();
+        LauncherController.Shot shot = c.fire();
+        assertTrue(shot.fired());
+        double speed = shot.speed();
         double omega = Units.rpmToRadPerSec(6000);
         assertEquals(omega * 1.0, speed, 1e-6);
         assertEquals(1, w.projectiles.size());
@@ -75,7 +77,9 @@ public class LauncherControllerTest {
         World w = worldWithFlywheel(3000);
         LauncherController c = new LauncherController(w);
         c.configure(spec(launcher("speedFrom", FLYWHEEL, "wheelDiameterIn", 2.0, "slip", 0.5, "pitchDeg", 30.0)));
-        double speed = c.fire();
+        LauncherController.Shot shot = c.fire();
+        assertTrue(shot.fired());
+        double speed = shot.speed();
         assertEquals(Units.rpmToRadPerSec(3000) * 0.5, speed, 1e-6);
         assertTrue(w.projectiles.get(0).vz > 0, "a positive pitch throws the ball upward");
     }
@@ -86,17 +90,17 @@ public class LauncherControllerTest {
         LauncherController c = new LauncherController(w);
         c.configure(spec(launcher("speedFrom", FLYWHEEL, "capacity", 2)));
         assertEquals(2, c.remaining());
-        assertTrue(c.fire() > 0);
+        assertTrue(c.fire().fired());
         assertEquals(0, c.remaining(), "one trigger commits the whole magazine");
         assertEquals(1, w.projectiles.size(), "the rest of the salvo waits for its cadence");
-        assertEquals(0.0, c.fire(), 1e-9, "a salvo is already running");
+        assertEquals(LauncherController.FireResult.BUSY, c.fire().result(), "a salvo is already running");
         advance(w, 0.4);
         c.poll();
         assertEquals(1, w.projectiles.size(), "balls are spaced by salvoIntervalSec");
         advance(w, 0.1);
         c.poll();
         assertEquals(2, w.projectiles.size());
-        assertEquals(0.0, c.fire(), 1e-9);   // empty: nothing leaves
+        assertEquals(LauncherController.FireResult.EMPTY, c.fire().result());
         c.reload();
         assertEquals(2, c.remaining());
     }
@@ -120,7 +124,7 @@ public class LauncherControllerTest {
         LauncherController c = new LauncherController(w);
         c.configure(null);
         assertFalse(c.enabled());
-        assertEquals(0.0, c.fire(), 1e-9);
+        assertEquals(LauncherController.FireResult.DISABLED, c.fire().result());
         assertTrue(w.projectiles.isEmpty());
     }
 
@@ -172,6 +176,37 @@ public class LauncherControllerTest {
         // polls, so no single step is a large jump.
         for (double p = 0.0; p <= 0.85; p += 0.05) { pusher.setPosition(p); c.poll(); }
         assertEquals(1, w.projectiles.size(), "a ramping push should fire exactly one ball");
+    }
+
+    /**
+     * A launcher with no speed source still shoots — at zero speed. The shot must count as fired,
+     * or the push stays pending and a ball picked up later would leave on its own.
+     */
+    @Test
+    public void aZeroSpeedShotStillEndsThePush() {
+        World w = new World();
+        ServoState pusher = new ServoState(0, "pusher");
+        pusher.setPosition(0.0);
+        w.servos.add(pusher);
+        LauncherController c = new LauncherController(w);
+        // the muzzle is beside the robot, so the motionless balls are not driven over and picked up
+        c.configure(spec(launcher("capacity", 2, "exit", Map.of("y", 25.0),
+            "trigger", Map.of("servo", "pusher", "position", 0.5, "minRpm", 0.0))));
+
+        c.poll();                       // first look only records where the servo is
+        pusher.setPosition(0.5);
+        c.poll();
+        assertEquals(1, w.projectiles.size());
+        assertEquals(0.0, w.projectiles.get(0).vx, 1e-9, "no speed source: the ball leaves at rest");
+
+        advance(w, 0.6);
+        c.poll();                       // the rest of the salvo
+        assertEquals(2, w.projectiles.size());
+
+        c.collect();                    // a ball back in the magazine while the servo is still pushed
+        advance(w, 0.3);
+        c.poll();
+        assertEquals(2, w.projectiles.size(), "a finished push must not fire a collected ball by itself");
     }
 
     /**

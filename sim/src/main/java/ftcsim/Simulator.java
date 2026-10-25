@@ -295,8 +295,9 @@ public final class Simulator {
                 case "sim.timer": matchTimerEnabled = Boolean.TRUE.equals(msg.get("enabled")); if (matchTimerEnabled && runner.state() == SimOpModeRunner.State.RUNNING) armMatchTimer(); break;
                 case "sim.launch": {
                     if (launcher == null || !launcher.enabled()) { toast(client, "warn", "No launcher in the robot configuration"); break; }
-                    double speed = launcher.fire();
-                    if (speed <= 0 && launcher.remaining() <= 0) toast(client, "warn", "Magazine empty — reload");
+                    if (launcher.fire().result() == LauncherController.FireResult.EMPTY) {
+                        toast(client, "warn", "Magazine empty — reload");
+                    }
                     break;
                 }
                 case "sim.launcherPitch": {

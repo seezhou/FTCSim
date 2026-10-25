@@ -6,7 +6,7 @@ refs:
     hash: 21586736b39a
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
-    hash: 71c560d63844
+    hash: 8cf7ef7e2d95
 ---
 
 # FTCSim — 射球 / 发射器 / HIVE·CELL（现状总结）
@@ -70,6 +70,7 @@ refs:
 ### 齐射（salvo）
 
 - 一次触发（`fire()`）把弹匣里**剩余全部**球作为一次齐射放出：第一颗立即发射，其余由 `poll()` 每 **`salvoIntervalSec` 秒**放出一颗。该值来自配置 `params.launcher.salvoIntervalSec`（默认 0.5，当前 `FtcRobotController.json` 设为 0.1），改配置即改间隔，需重启后端生效。
+- `fire()` 返回 `Shot(result, speed)`，`result` 是 `FIRED` / `BUSY`（齐射进行中）/ `EMPTY`（弹匣空）/ `DISABLED`（未配置）。**判断是否放出球要看 `fired()`，不能看 `speed > 0`**：没有转速来源的发射器合法地以 0 速放球。
 - `poll()` 在 20 Hz 循环里检查 `salvoLeft > 0 && 到了间隔` 就放下一颗，直到队列空；中途重载/重配会取消进行中的齐射。
 - 球之间靠飞行速度自然拉开距离，不重叠。
 

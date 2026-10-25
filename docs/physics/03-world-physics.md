@@ -6,7 +6,7 @@ refs:
     hash: a9e047d54757
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
-    hash: 71c560d63844
+    hash: 8cf7ef7e2d95
 ---
 
 # FTCSim 物理积分与世界（Phase 1 · 第 4 步）
