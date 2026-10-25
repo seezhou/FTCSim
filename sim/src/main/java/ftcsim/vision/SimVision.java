@@ -10,22 +10,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 /** Shared context for the simulated vision stack (VisionPortal / AprilTag processors): the true robot pose and the field. */
 public final class SimVision {
     private static volatile Chassis chassis;
     private static volatile Supplier<Field> field = () -> null;
-    private static volatile IntSupplier obelisk = () -> 21;
     private static final List<VisionPortalImpl> portals = new CopyOnWriteArrayList<>();
 
     private SimVision() {}
 
-    public static void install(Chassis c, Supplier<Field> f, IntSupplier obeliskTag) { chassis = c; field = f; obelisk = obeliskTag; }
+    public static void install(Chassis c, Supplier<Field> f) { chassis = c; field = f; }
     public static Pose2 robotPose() { Chassis c = chassis; return c == null ? new Pose2(0, 0, 0) : c.pose(); }
     public static Field field() { return field.get(); }
-    public static int obeliskTag() { return obelisk.getAsInt(); }
 
     public static void register(VisionPortalImpl p) { portals.add(p); }
     public static void unregister(VisionPortalImpl p) { portals.remove(p); }

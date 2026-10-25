@@ -105,7 +105,6 @@ function onState(m) {
   $('poseFtc').textContent = `FTC x ${r.x.toFixed(1)}  y ${r.y.toFixed(1)}  θ ${r.headingDeg.toFixed(0)}°`;
   $('posePedro').textContent = `Pedro x ${pd.x.toFixed(1)}  y ${pd.y.toFixed(1)}  θ ${pd.h.toFixed(0)}°`;
   if (state.rightTab === 'hardware') renderDevices(m.devices);
-  if ($('obeliskSelect')) $('obeliskSelect').value = String(m.sim.obelisk);
 }
 document.querySelectorAll('#telemetryTabs button').forEach(b => b.onclick = () => { document.querySelectorAll('#telemetryTabs button').forEach(x => x.classList.remove('active')); b.classList.add('active'); state.telemetryTab = b.dataset.tab; });
 document.querySelectorAll('#rightTabs button').forEach(b => b.onclick = () => {
@@ -155,9 +154,7 @@ function drawField() {
     for (const z of (f.zones || [])) poly([[z.minX, z.minY], [z.maxX, z.minY], [z.maxX, z.maxY], [z.minX, z.maxY]], z.color + '44', z.color + 'aa', 1);
     for (const o of f.obstacles) poly([[o.minX, o.minY], [o.maxX, o.minY], [o.maxX, o.maxY], [o.minX, o.maxY]], o.color + '55', o.color, 2);
     for (const sh of (f.shapes || [])) drawShape(sh);
-    const ob = state.last ? state.last.sim.obelisk : 21;
     for (const t of f.tags) {
-      if (t.id >= 21 && t.id <= 23 && t.id !== ob && f.name === 'DECODE') continue;
       const a = t.yawDeg * Math.PI / 180; const hx = Math.cos(a + Math.PI / 2) * t.size / 2, hy = Math.sin(a + Math.PI / 2) * t.size / 2;
       ctx.lineWidth = 4; ctx.strokeStyle = '#f5f5f5'; line(t.x - hx, t.y - hy, t.x + hx, t.y + hy);
       ctx.lineWidth = 1.5; ctx.strokeStyle = '#f5f5f5'; line(t.x, t.y, t.x + Math.cos(a) * 5, t.y + Math.sin(a) * 5);
@@ -212,9 +209,7 @@ function renderFieldOptions(field) {
     host.dataset.key = key;
     host.innerHTML = opts.map(o => `<label>${esc(o.label)} <select data-key="${esc(o.key)}">${o.choices.map((c, i) => `<option value="${esc(c)}">${esc(o.choiceLabels[i] || c)}</option>`).join('')}</select></label>`).join('');
     for (const sel of host.querySelectorAll('select')) sel.onchange = (e) => {
-      const k = e.target.dataset.key;
-      if (k === 'obelisk') send({ type: 'sim.obelisk', id: parseInt(e.target.value, 10) });
-      send({ type: 'sim.field', key: k, value: e.target.value });
+      send({ type: 'sim.field', key: e.target.dataset.key, value: e.target.value });
     };
   }
   const st = (field && field.state) || {};

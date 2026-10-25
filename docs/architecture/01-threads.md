@@ -6,7 +6,7 @@ refs:
     hash: 1c9b9200be2d
   - path: sim/src/main/java/ftcsim/Simulator.java
     anchor: "private void broadcastLoop()"
-    hash: ee465b48d71f
+    hash: 3c89d29aecf3
 ---
 
 # FTCSim 进程内线程拓扑（Phase 1 · 第 1 步：总览梳理）

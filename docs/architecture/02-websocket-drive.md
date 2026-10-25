@@ -6,7 +6,7 @@ refs:
     hash: 5e171df9afaf
   - path: sim/src/main/java/ftcsim/Simulator.java
     anchor: "private void sendHello(WebServer.Client client)"
-    hash: ef56adb16605
+    hash: c3fb7835a901
 ---
 
 # WebSocket 消息如何驱动 3D（Phase 2 · 第 1 步）
@@ -24,7 +24,7 @@ flowchart TB
     H["hello（按需，一次性）<br/>客户端连上后主动请求<br/>Simulator.java:356-370"]
     F["field（事件驱动）<br/>HIVE 倾覆 / 场地选项被改<br/>broadcastField :378-380"]
     S["state（周期 20 Hz）<br/>broadcastLoop 每 50ms<br/>stateMessage() :473-532"]
-    E["事件类（随时）<br/>ball.score / hive.tip / toast<br/>gamepad.rumble / opmodes / log"]
+    E["事件类（随时）<br/>ball.score / field.event / toast<br/>gamepad.rumble / opmodes / log"]
   end
 
   W[("/ws 同一条 WebSocket<br/>全双工：后端推，前端也发控制")]
@@ -32,9 +32,9 @@ flowchart TB
   subgraph FRONT["前端（浏览器 · main.js handle）"]
     direction TB
     H2["handle(hello) :115<br/>field.rebuild + robot.setSpec<br/>→ 重建整个 3D 场景"]
-    F2["handle(field) :125<br/>field.rebuild + renderBioBuzz<br/>→ 只重建场地"]
+    F2["handle(field) :125<br/>field.rebuild + renderFieldOptions<br/>→ 只重建场地"]
     S2["handle(state) :131<br/>robot / devices / balls / launcher<br/>drawings / telemetry / HUD"]
-    E2["其余 :140-150<br/>比分提示 / HIVE 提示 / 手柄震动"]
+    E2["其余 :140-150<br/>比分提示 / 场地事件提示 / 手柄震动"]
   end
 
   H --> W --> H2
@@ -57,7 +57,7 @@ flowchart TB
 | `hello` | **按需一次** | 前端连上后发 `{type:"hello"}`，后端回应（:309） | 大：整个场地 + 机器人规格 + 起始位姿 |
 | `field` | **事件驱动** | HIVE 倾覆使 CELL 移动、或场地选项被改 | 大：整份场地描述 |
 | `state` | **周期 20 Hz** | broadcastLoop 每 50 ms（:625） | 中：全量快照，每次都重发所有设备/球/遥测 |
-| `log` / `toast` / `ball.score` / `hive.tip` | 事件 | 随时 | 小 |
+| `log` / `toast` / `ball.score` / `field.event` | 事件 | 随时 | 小 |
 
 > `hello` 之后后端还会**紧跟着单独发一条 `opmodes`**（:368），所以 OpMode 下拉列表不用等下一次 state。
 
@@ -126,10 +126,10 @@ flowchart LR
   CL --> RB
   TG --> RB
   OB --> RB
-  OP --> BB["renderBioBuzz → 场地选项下拉<br/>main.js:120 / :129"]
+  OP --> BB["renderFieldOptions → 场地选项下拉<br/>main.js:120 / :129"]
 
   RB --> SCENE[("Three.js Scene<br/>新的场地几何")]
-  BB --> HTML[("HTML 面板<br/>BioBuzz 选项")]
+  BB --> HTML[("HTML 面板<br/>场地选项")]
 
   classDef sim fill:#211d08,stroke:#eab308,color:#fde68a
   classDef web fill:#240e18,stroke:#ec4899,color:#fbcfe8

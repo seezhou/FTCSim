@@ -61,7 +61,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; fon
 #dsPanel .tellines { flex: 1; min-height: 120px; max-height: none; }
 .pdivider { height: 1px; background: #2c3442; margin: 2px 0; }
 
-/* centre column: pose strip + biobuzz stacked, so one can collapse under the other */
+/* centre column: pose strip + field options stacked, so one can collapse under the other */
 #centerCol {
   position: absolute; pointer-events: none;
   top: calc(var(--hdr, 78px) + 8px); left: 424px; right: 424px;
@@ -69,7 +69,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; fon
 }
 #centerCol .panel { position: static; pointer-events: auto; }
 #posePanel { resize: horizontal; overflow: auto; min-width: 430px; }
-#bioBuzzPanel { resize: horizontal; overflow: auto; min-width: 320px; }
+#fieldPanel { resize: horizontal; overflow: auto; min-width: 320px; }
 
 /* Pose · View — flat side-by-side split (pose left, view right); stretch to the hardware panel */
 .pvsplit { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; }
@@ -242,12 +242,12 @@ button.active { background: #2b4a7a; border-color: #4f8cff; color: #fff; }
 button.mini { padding: 2px 8px; font-size: 11.5px; line-height: 1.5; }
 select.mini { background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px; padding: 2px 6px; font-size: 11.5px; line-height: 1.5; cursor: pointer; }
 
-#bioBuzzOptions label { font-size: 11.5px; color: #b8c2d0; display: flex; align-items: center; gap: 4px; }
-/* biobuzz controls ride on the title row to save vertical space */
-.bbInline { flex: 1; min-width: 0; flex-wrap: wrap; }
-.bbInline label { white-space: nowrap; }
-.panel.collapsed #bioBuzzOptions { display: none !important; }
-#bioBuzzOptions select {
+#fieldOptions label { font-size: 11.5px; color: #b8c2d0; display: flex; align-items: center; gap: 4px; }
+/* field controls ride on the title row to save vertical space */
+.fieldInline { flex: 1; min-width: 0; flex-wrap: wrap; }
+.fieldInline label { white-space: nowrap; }
+.panel.collapsed #fieldOptions { display: none !important; }
+#fieldOptions select {
   background: #262d3a; color: #cfd6e2; border: 1px solid #39424f; border-radius: 6px;
   padding: 2px 6px; font-size: 11.5px;
 }

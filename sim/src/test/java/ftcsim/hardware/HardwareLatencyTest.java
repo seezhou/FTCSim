@@ -24,7 +24,7 @@ public class HardwareLatencyTest {
         world = new World();
         world.field = null;
         RobotConfig cfg = RobotConfig.load(new File(System.getProperty("ftcsim.home", "."), "configs/Decode.json"));
-        hw = new SimHardware(world, cfg, () -> world.field, () -> 21);
+        hw = new SimHardware(world, cfg, () -> world.field);
         HardwareBus.install(world);
         HardwareBus.configure(true, 2.0, 2.5, 2.0, 2.5);
         HardwareBus.resetCounters();

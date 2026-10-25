@@ -35,7 +35,7 @@ refs:
 - `physics/World.java` — `projectiles` 容器、`spawnProjectile()`、`clearProjectiles()`、`collectBalls()`（碾球捡拾）；球挂在 `step()` 里，继承暂停/单步/时间缩放。
 - `physics/Field.java` — 通用场地基元 + 赛季注册（`byName`）；`physics/SeasonRules.java` 是引擎调用赛季行为的接口。
 - `physics/BiobuzzRules.java` — BIOBUZZ 专属：CELL（五边形棱柱）几何与碰撞、捕获/堆放、HIVE tip 与复位；`Projectile`/`World` 只经 `field.rules()` 调用。
-- `Simulator.java` — state 增 `balls` / `launcher` / `hive.tip`；`sim.launch` / `sim.reload` / `sim.clearBalls` / `sim.launcherPitch` / `sim.launcherPitch` 消息。
+- `Simulator.java` — state 增 `balls` / `launcher`；HIVE 倾覆改发通用 `field.event`；`sim.launch` / `sim.reload` / `sim.clearBalls` / `sim.launcherPitch` 消息。
 - `web/3d/robot.js` — `setAmmo()` / `ammoLayout()`：车内居中球簇渲染。
 - `web/3d/main.js` / `index.html` / `style.css` — 发射器角度滑块、隐藏原 `ammoPill` 文本。
 
@@ -87,7 +87,7 @@ refs:
 > `public static final int HIVE_TIP_BALLS = 4`，注释说明手册只写"enough POLLEN or NECTAR"未给数字、
 > sim 取 4。已更正为 4。
 - tip 时箱内球从口部倒出（口朝下外 30°，给 18 in/s 初速继续自由飞行，落地为 litter）；比赛重置（INIT / `robot.restart` / `sim.clearBalls`）把两个 HIVE 复位到开局态并清空 tip 计数。
-- tip **+20 分**（table 10-2），通过 `hive.tip {alliance, tips, points}` 广播；球的 `ball.score` 只保留给 DECODE goal。
+- tip **+20 分**（table 10-2，由 `SeasonRules.tipPoints()` 提供），通过通用 `field.event {event,label,count,points}` 广播；球的 `ball.score` 只保留给 DECODE goal。
 - tip 必须回传场地：`BiobuzzRules.tip()` 调 `World.markFieldChanged()`，广播循环调 `broadcastField()`，前端收到后 `rebuild` + `aimHives` 触发 60° 摆动动画。
 
 ## 6. 前端
@@ -100,8 +100,8 @@ refs:
 
 ## 7. 消息协议
 
-- state：`balls:[{id,x,y,z,r,state,goal?}]`、`launcher:{enabled,remaining,capacity,pitchDeg,ballRadiusIn,scored,captured}`、`hive.tip`（在 `sim.field` 整体场地消息里回传）。
-- 后端→前端事件：`ball.score {goal,total}`、`hive.tip {alliance,tips,points}`、捡球通过 `balls` 状态消失体现。
+- state：`balls:[{id,x,y,z,r,state,goal?}]`、`launcher:{enabled,remaining,capacity,pitchDeg,ballRadiusIn,scored,captured,tips}`。
+- 后端→前端事件：`ball.score {goal,total}`、`field.event {event,label,count,points}`（BIOBUZZ 的 `event` 为 `RED`/`BLUE`，`label` 形如 `RED HIVE tipped`）、捡球通过 `balls` 状态消失体现。
 - 前端→后端：`sim.launch` / `sim.reload` / `sim.clearBalls` / `sim.launcherPitch{deg}`。
 - INIT 与 `robot.restart` 清场并补满弹量。
 

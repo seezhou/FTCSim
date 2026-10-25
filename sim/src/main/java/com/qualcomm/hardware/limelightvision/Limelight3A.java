@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -30,7 +29,6 @@ public class Limelight3A implements HardwareDevice, SimDevice {
     private final String name;
     private final Chassis chassis;
     private final Supplier<Field> field;
-    private final IntSupplier obeliskTag;
     private final Random random = new Random(7);
 
     // mounting on the robot (metres / radians)
@@ -50,8 +48,8 @@ public class Limelight3A implements HardwareDevice, SimDevice {
     private volatile List<Integer> lastVisibleIds = new ArrayList<>();
     private volatile long startNanos = System.nanoTime();
 
-    public Limelight3A(String name, Chassis chassis, Supplier<Field> field, IntSupplier obeliskTag) {
-        this.name = name; this.chassis = chassis; this.field = field; this.obeliskTag = obeliskTag;
+    public Limelight3A(String name, Chassis chassis, Supplier<Field> field) {
+        this.name = name; this.chassis = chassis; this.field = field;
     }
 
     public void configureMount(double xIn, double yIn, double zIn, double yawDeg, double pitchDeg) {
@@ -128,10 +126,9 @@ public class Limelight3A implements HardwareDevice, SimDevice {
             double focalV = (imageHeight / 2.0) / Math.tan(vfov / 2);
             List<Seen> seen = new ArrayList<>();
             Field f = field.get();
-            int obelisk = obeliskTag.getAsInt();
             if (f != null && !forceNoTargets) {
                 for (Field.AprilTag t : f.tags) {
-                    if (t.id >= 21 && t.id <= 23 && t.id != obelisk) continue;
+                    if (!f.rules().isTagVisible(f, t)) continue;
                     Vec2 tagPos = new Vec2(Units.inToM(t.x), Units.inToM(t.y));
                     Vec2 rel = tagPos.minus(cam);
                     double dist = rel.norm();

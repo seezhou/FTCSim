@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MotorDirectionTest {
     private static SimHardware decodeHardware(World w) throws Exception {
         RobotConfig cfg = RobotConfig.load(new File(System.getProperty("ftcsim.home", "."), "configs/Decode.json"));
-        return new SimHardware(w, cfg, () -> w.field, () -> 21);
+        return new SimHardware(w, cfg, () -> w.field);
     }
 
     @Test public void userPowersFollowTeamDirections() throws Exception {

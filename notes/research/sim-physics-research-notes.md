@@ -393,15 +393,16 @@ PIDF 在 `controlStep` 的 `RUN_USING_ENCODER` 与 `RUN_TO_POSITION` 分支里�
 
 ## 结论 27：标签放在哪 & SDK 12 cluster，以及一个跳 holistic 事实
 
-- `placement(AprilTagMetadata)`（:141-163）优先用**库自带的 `fieldPosition` + `fieldOrientation`**；其中 `pl.yawDeg = degrees(atan2(-z.y, -z.x))`（:150-151），因为 **`VectorF(0,0,1)` 经 quaternion 变换后得到的是"指向 tag 内部"的法线，标签朝向是其反方向**——这正是 CLAUDE.md 那条「tag library quaternions: the tag's local +Z points INTO the tag face」的代码落地。
-- **未被 library 放置的标签**（如 DECODE obelisk）改从 `SimVision.field()` 的 `Field.AprilTag` 里按 id 取位置（:154-161）；且 **`id 21..23` 中只有 `SimVision.obeliskTag()` 选中的那一面在场，其余返回 null**（:158）。
+- `placement(AprilTagMetadata)`（:143-165）优先用**库自带的 `fieldPosition` + `fieldOrientation`**；其中 `pl.yawDeg = degrees(atan2(-z.y, -z.x))`（:150-151），因为 **`VectorF(0,0,1)` 经 quaternion 变换后得到的是"指向 tag 内部"的法线，标签朝向是其反方向**——这正是 CLAUDE.md 那条「tag library quaternions: the tag's local +Z points INTO the tag face」的代码落地。
+- **未被 library 放置的标签**（如 DECODE obelisk）改从 `SimVision.field()` 的 `Field.AprilTag` 里按 id 取位置（:154-161）；可见性统一交给 `field.rules().isTagVisible(field, tag)`（:160）——`DecodeRules` 让 `id 21..23` 中只有 obelisk 选项选中的那一面在场，其余返回 null。`SimVision.obeliskTag()` 与 `sim.obelisk` 已删除。
 - **SDK 12 cluster**（:220-249）反射调用库的 `getAllClusters()`：先逐 member 用更宽松的 `minFacing(0.15)` 判定可见数，**`percent = 可见成员数 / 总成员数`** 作为置信度（:241）；成员越多，噪声除以 `sqrt(visible)` 越准（:237）。
 - **跨 SDK 版本兼容全靠反射**（静态块 :51-80）：优先找 SDK 12 的 `AprilTagSingleDetection` 带 `DistanceUnit` 的构造函数（:71-73），找不到退回 SDK 11 的 `AprilTagDetection` 老签名（:76）；cluster 相关 Method/Field 也一律 `Class.forName` + 失败置 null（:58-67）。这与 CLAUDE.md「SDK 11/12 都得编译通过」的约束一致。
 - **一个容易被忽略的事实**：视觉线程是**豁免线程**（第 5 步结论 20），所以**暂停时 `simFrame` 仍在被调用**，只是 `robotPose()` 被冻结故检出结果恒定——暂停期间 UI 里的 AprilTag 读数不会消失也不会变化。
 
 ## 源码证据文件
 - `sim/src/main/java/org/firstinspires/ftc/vision/VisionPortalImpl.java:25-32（类注释/FPS）, 45-65（构造 init + notSimulated warn）, 78-95（frameLoop 30Hz/豁免/重锚定）, 107-121（stop/resume）, 126-150（getCameraControl 动态代理）, 155-158（空白 Bitmap）, 167-182（view）`
-- `sim/src/main/java/org/firstinspires/ftc/vision/apriltag/AprilTagProcessorImpl.java:37（继承+SimVisionProcessor）, 94-98（processFrame 等空实现）, 115-138（Camera.see 视锥判定）, 141-163（placement / tag +Z / obelisk）, 165-253（simFrame 全貌）, 200-202（6px 门槛 + 距离噪声）, 257-274（三种 pose + 噪声）, 51-80（SDK 11/12 反射兼容）`
+- `sim/src/main/java/org/firstinspires/ftc/vision/apriltag/AprilTagProcessorImpl.java:37（继承+SimVisionProcessor）, 94-98（processFrame 等空实现）, 117-141（Camera.see 视锥判定）, 143-165（placement / tag +Z / isTagVisible）, 167-276（simFrame 全貌）, 202-204（6px 门槛 + 距离噪声）, 257-274（三种 pose + 噪声）, 59-80（SDK 11/12 反射兼容）`
+- `sim/src/main/java/ftcsim/physics/DecodeRules.java`（`isTagVisible`：obelisk 只留选中那一面）
 - `sim/src/main/java/ftcsim/vision/SimVision.java:17-33（真值上下文 install/robotPose/field/register/closeAll）`
 - `sim/src/main/java/ftcsim/vision/SimVisionProcessor.java:4-9（simFrame/simSummary 接口）`
 - `sim/src/main/java/ftcsim/vision/CameraMount.java:5-10（相机安装默认参数）`
@@ -423,8 +424,8 @@ PIDF 在 `controlStep` 的 `RUN_USING_ENCODER` 与 `RUN_TO_POSITION` 分支里�
 
 | 消息 | 节奏 | 触发 | 体量 | 前端动作 |
 |---|---|---|---|---|
-| `hello` | 按需一次 | 连上后发 `{type:"hello"}`（`main.js:106`） | 大 | `field.rebuild` + `robot.setSpec` + `renderBioBuzz` + `clearTrail` + `balls.clear`（`:115-124`）→ **重建整个 3D 场景** |
-| `field` | 事件驱动 | HIVE 倾覆/场地选项改（后端 `broadcastField`，`Simulator.java:378-380`） | 大 | 只 `field.rebuild` + `renderBioBuzz`（`:125-129`） |
+| `hello` | 按需一次 | 连上后发 `{type:"hello"}`（`main.js:106`） | 大 | `field.rebuild` + `robot.setSpec` + `renderFieldOptions` + `clearTrail` + `balls.clear`（`:115-124`）→ **重建整个 3D 场景** |
+| `field` | 事件驱动 | HIVE 倾覆/场地选项改（后端 `broadcastField`，`Simulator.java:378-380`） | 大 | 只 `field.rebuild` + `renderFieldOptions`（`:125-129`） |
 | `state` | **周期 20 Hz** | `broadcastLoop` 每 50 ms（`Simulator.java:625`） | 中 | 分发到 robot/devices/balls/launcher/overlay/HUD（`:131-139`） |
 
 `hello` 之后后端**紧跟着单独发一条 `opmodes`**（`sendHello`，`Simulator.java:368`），所以 OpMode 下拉不用等下一次 state。

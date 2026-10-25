@@ -157,7 +157,7 @@ public class AprilTagProcessorImpl extends AprilTagProcessor implements SimVisio
         if (f == null) return null;
         for (Field.AprilTag t : f.tags) {
             if (t.id != m.id) continue;
-            if (t.id >= 21 && t.id <= 23 && t.id != SimVision.obeliskTag()) return null; // only the chosen obelisk face is on the field
+            if (!f.rules().isTagVisible(f, t)) return null;
             pl.x = t.x; pl.y = t.y; pl.z = t.z; pl.yawDeg = t.yawDeg; if (pl.sizeIn <= 0) pl.sizeIn = t.sizeIn;
             return pl;
         }

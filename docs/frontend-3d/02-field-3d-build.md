@@ -3,10 +3,10 @@ summary: 场地描述如何变成 3D 几何（rebuild 七步流水线）
 refs:
   - path: sim/src/main/resources/web/3d/field.js
     anchor: "function rebuild(fieldMsg)"
-    hash: 23cbb120f38a
+    hash: 3bf8d427384f
   - path: sim/src/main/resources/web/3d/field.js
     anchor: "function buildClusters(field)"
-    hash: 9e3087eb3d01
+    hash: 855f37ddb023
 ---
 
 # 场地描述如何变成 3D 几何（Phase 2 · 第 2 步：`field.js`）

@@ -16,7 +16,6 @@ import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.Rotation;
 
 import java.util.*;
-import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
@@ -52,17 +51,15 @@ public final class SimHardware {
     private final Map<String, ServoState> servoStates = new LinkedHashMap<>();
     private final List<SimPinpoint> pinpoints = new ArrayList<>();
     private final Supplier<Field> fieldSupplier;
-    private final IntSupplier obeliskTag;
     private final Object lock = new Object();
     /** Set by the simulator: returns true while snapping to code poses is allowed (OpMode in INIT). */
     public volatile java.util.function.BooleanSupplier snapAllowed = () -> true;
     private volatile String codeFrame;
 
-    public SimHardware(World world, RobotConfig config, Supplier<Field> fieldSupplier, IntSupplier obeliskTag) {
+    public SimHardware(World world, RobotConfig config, Supplier<Field> fieldSupplier) {
         this.world = world;
         this.config = config;
         this.fieldSupplier = fieldSupplier;
-        this.obeliskTag = obeliskTag;
         this.hardwareMap = new SimHardwareMap(new Activity());
         build();
     }
@@ -78,7 +75,7 @@ public final class SimHardware {
         }
         wireDrivetrain();
         if (config.autoCreateDevices) hardwareMap.setAutoCreator(this::autoCreate);
-        ftcsim.vision.SimVision.install(world.chassis, fieldSupplier, obeliskTag);
+        ftcsim.vision.SimVision.install(world.chassis, fieldSupplier);
         ftcsim.vision.SimClassFactory.install(() -> hardwareMap);
         world.addStepListener(new java.util.function.DoubleConsumer() {
             double acc;
@@ -372,7 +369,7 @@ public final class SimHardware {
     private HardwareDevice createOtos(RobotConfig.Device spec) { SimOTOS o = new SimOTOS(spec.name, hubFor(spec).hub.getName(), world.chassis); o.setPoseSnapper(snapper); return o; }
 
     private HardwareDevice createLimelight(RobotConfig.Device spec) {
-        Limelight3A ll = new Limelight3A(spec.name, world.chassis, fieldSupplier, obeliskTag);
+        Limelight3A ll = new Limelight3A(spec.name, world.chassis, fieldSupplier);
         Map<String, Object> mount = spec.map("mount");
         if (mount != null) ll.configureMount(RobotConfig.Device.num(mount, "x", 0), RobotConfig.Device.num(mount, "y", 0), RobotConfig.Device.num(mount, "z", 10), RobotConfig.Device.num(mount, "yawDeg", 0), RobotConfig.Device.num(mount, "pitchDeg", 0));
         ll.configureOptics(spec.num("hfovDeg", 54.5), spec.num("vfovDeg", 42), spec.num("maxRangeIn", 150));

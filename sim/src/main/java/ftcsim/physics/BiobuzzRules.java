@@ -260,8 +260,7 @@ public final class BiobuzzRules implements SeasonRules {
 
     /**
      * The upward CELL is heavy enough: the HIVE falls through to its other stable state (a 60°
-     * turn around the pivot), spilling the balls that were in it. Worth 20 points, per manual
-     * table 10-2.
+     * turn around the pivot), spilling the balls that were in it. Worth {@link #tipPoints()}.
      */
     private static void tip(String cellName, World world) {
         Field field = world.field;
@@ -296,6 +295,16 @@ public final class BiobuzzRules implements SeasonRules {
         p.vx = out[0] * 18 + across[0] * nudge * 3;
         p.vy = out[1] * 18 + across[1] * nudge * 3;
         p.vz = out[2] * 18;
+    }
+
+    @Override
+    public int tipPoints() {
+        return 20;   // manual table 10-2
+    }
+
+    @Override
+    public String scoreEventLabel(String event) {
+        return event + " HIVE tipped";
     }
 
     @Override

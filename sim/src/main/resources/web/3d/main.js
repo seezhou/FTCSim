@@ -118,7 +118,7 @@ function handle(m) {
       field.rebuild(m.field);
       setMinFacing(m.field?.aprilTagMinFacing);
       robot.setSpec({ ...(m.robot || {}), startPose: m.startPose });
-      renderBioBuzz(m.field);
+      renderFieldOptions(m.field);
       $('camHint').classList.add('hidden');
       clearTrail();
       balls.clear();
@@ -128,7 +128,7 @@ function handle(m) {
       $('fieldPill').textContent = fieldName;
       field.rebuild(m.field);
       setMinFacing(m.field?.aprilTagMinFacing);
-      renderBioBuzz(m.field);
+      renderFieldOptions(m.field);
       break;
     case 'state':
       if (m.robot) robot.setState(m.robot);
@@ -147,7 +147,7 @@ function handle(m) {
     case 'gamepad.rumble': gamepads.applyRumble(m); break;
     case 'gamepad.rumble.stop': gamepads.stopAllRumble(); break;
     case 'ball.score': onBallScore(m); break;
-    case 'hive.tip': onHiveTip(m); break;
+    case 'field.event': onFieldEvent(m); break;
     case 'toast': toast(m.level, m.text); break;
   }
 }
@@ -250,10 +250,10 @@ function onBallScore(m) {
   toast('info', `${m.goal}: ${m.total} scored`);
 }
 
-// A HIVE tip, not the balls, is what scores on BIOBUZZ: the balls only ever show up as
-// "in CELL" in the launcher row (see updateLauncher).
-function onHiveTip(m) {
-  toast('info', `${m.alliance} HIVE tipped — +${m.points} pts`);
+// Season scoring events (a HIVE tip on BIOBUZZ) arrive from the rules plugin with their own
+// label and points; the UI does not need to know which season produced them.
+function onFieldEvent(m) {
+  toast('info', `${m.label} — +${m.points} pts`);
 }
 
 // ------------------------------------------------- FTC Dashboard / Panels overlay
@@ -316,10 +316,10 @@ function renderTelemetry(m) {
   $('telCount').className = 'pill' + (lines.length ? ' ok' : '');
 }
 
-function renderBioBuzz(f) {
-  const host = $('bioBuzzOptions');
+function renderFieldOptions(f) {
+  const host = $('fieldOptions');
   const opts = f?.options || [];
-  const key = JSON.stringify(opts.map(o => o.key)) + fieldName;
+  const key = JSON.stringify(opts.map(o => o.key)) + (f?.name || '');
   if (host.dataset.key === key) {
     const st = f?.state || {};
     for (const sel of host.querySelectorAll('select'))
@@ -338,10 +338,7 @@ function renderBioBuzz(f) {
       opt.value = c; opt.textContent = o.choiceLabels?.[i] || c;
       sel.appendChild(opt);
     });
-    sel.onchange = (e) => {
-      if (o.key === 'obelisk') send({ type: 'sim.obelisk', id: parseInt(e.target.value, 10) });
-      send({ type: 'sim.field', key: o.key, value: e.target.value });
-    };
+    sel.onchange = (e) => send({ type: 'sim.field', key: o.key, value: e.target.value });
     label.appendChild(sel);
     host.appendChild(label);
   }

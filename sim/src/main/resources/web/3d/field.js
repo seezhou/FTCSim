@@ -128,7 +128,7 @@ export function createField(scene) {
   // ---------------------------------------------------------------- static shell
   // Draws at the field's actual half-size. `halfField` is updated from the backend's
   // fieldMessage.sizeIn in rebuild(); it falls back to HALF (72) if the message omits it.
-  function buildShell(name) {
+  function buildShell() {
     // floor
     const floor = new THREE.Mesh(
       new THREE.PlaneGeometry(2 * halfField, 2 * halfField),
@@ -234,12 +234,9 @@ export function createField(scene) {
   // tag stickers sit on the front face (5.622 in along the facing), so the glass panel
   // front face is put exactly at the tag plane and the tags land flush on it.
   const CELL_TUBE_R = 0.65;     // red edge-frame tube radius
-  // CELL/HIVE geometry now comes from the backend fieldMessage.cellGeometry (source of truth).
-  // The values below are a fallback only used if an older sim build omits it.
-  let cellGeom = {
-    pent: [[-10, -9.938], [10, -9.938], [10, -2.328], [0, 4.062], [-10, -2.328]],
-    depth: 11.244, bottom: 9.938, armDrop: 5.6375, hivePivotZ: 43.95, hiveY: 12.75, hiveTiltDeg: 30,
-  };
+  // CELL/HIVE geometry comes from the backend fieldMessage.cellGeometry (source of truth);
+  // a field without it has no cluster rendering to do.
+  let cellGeom = null;
 
   /** Thin round tube from a to b (three.js local coords) — one edge of a frame. */
   function addEdgeTube(parent, a, b, mat, r = CELL_TUBE_R) {
@@ -272,6 +269,7 @@ export function createField(scene) {
   }
 
   function buildClusters(field) {
+    if (!cellGeom) return;
     for (const cl of field.clusters || []) {
       const color = cl.name.startsWith('RED') ? 0xd93b2b : 0x2b5fd9;
       const { n, up, across } = cellBasis(cl);
@@ -336,8 +334,8 @@ export function createField(scene) {
       parent.add(cell);
       cellGroups[cl.name] = cell;
     }
-    // BIOBUZZ HIVE: see-saw beams through the central pivot bar + frame
-    if ((field.name || '').toUpperCase() === 'BIOBUZZ') buildHives(field);
+    // the field announces a see-saw HIVE geometry (cellGeometry); draw its beams and frame
+    if (cellGeom) buildHives(field);
   }
 
   function buildHives(field) {
@@ -556,7 +554,8 @@ export function createField(scene) {
     if (typeof fieldMsg.sizeIn === 'number' && fieldMsg.sizeIn > 0) halfField = fieldMsg.sizeIn / 2;
     else halfField = HALF;
     if (fieldMsg.cellGeometry) cellGeom = fieldMsg.cellGeometry;
-    buildShell(fieldMsg.name);
+    else cellGeom = null;
+    buildShell();
     buildZones(fieldMsg.zones);
     buildObstacles(fieldMsg.obstacles);
     buildClusters(fieldMsg);

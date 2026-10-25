@@ -41,7 +41,7 @@ flowchart LR
 
   subgraph GEO["几何检出 · 无任何像素处理"]
     SEE["Camera.see()：视锥判定<br/>见 图2 六重门槛"]
-    PL["placement()：标签放哪<br/>库位置 or 场地 tags<br/>obelisk 只留选中那一面"]
+    PL["placement()：标签放哪<br/>库位置 or 场地 tags<br/>可见性由 rules.isTagVisible 决定"]
     PS["poses()：叠高斯噪声<br/>→ Ftc / Raw / robot Pose3D"]
   end
 
@@ -152,7 +152,8 @@ flowchart TB
 ## 源码证据
 
 - `sim/src/main/java/org/firstinspires/ftc/vision/VisionPortalImpl.java:25-32（类注释/FPS）, 45-65（init + notSimulated warn）, 78-95（frameLoop）, 126-150（动态代理）, 155-158（空白 Bitmap）`
-- `sim/src/main/java/org/firstinspires/ftc/vision/apriltag/AprilTagProcessorImpl.java:115-138（see 六重门槛）, 141-163（placement / tag +Z / obelisk）, 165-253（simFrame）, 200-202（6px + 噪声）, 51-80（SDK 11/12 反射）`
+- `sim/src/main/java/org/firstinspires/ftc/vision/apriltag/AprilTagProcessorImpl.java:117-141（see 六重门槛）, 143-165（placement / tag +Z / isTagVisible 过滤）, 167-276（simFrame）, 202-204（6px + 噪声）, 59-80（SDK 11/12 反射）`
+- `sim/src/main/java/ftcsim/physics/DecodeRules.java`（`isTagVisible`：标签 21–23 只留 obelisk 选中那一面）
 - `sim/src/main/java/ftcsim/vision/SimVision.java:17-33（真值上下文）`
 - `sim/src/main/java/ftcsim/vision/CameraMount.java:5-10（默认参数）`
 

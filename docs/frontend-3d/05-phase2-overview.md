@@ -3,7 +3,7 @@ summary: Phase 2 总览：前端模块拓扑 + 逐帧时序
 refs:
   - path: sim/src/main/resources/web/3d/main.js
     anchor: "function handle(m)"
-    hash: 66bd6c2a060a
+    hash: f807d2a8c4e8
   - path: sim/src/main/resources/web/3d/main.js
     anchor: "function animate()"
     hash: f30396102fb1

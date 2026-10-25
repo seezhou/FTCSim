@@ -19,7 +19,7 @@ public class AprilTagSimTest {
     @Test public void seesTheRedGoalTagWhenFacingIt() {
         World w = new World();
         w.field = Field.decode();
-        SimVision.install(w.chassis, () -> w.field, () -> 21);
+        SimVision.install(w.chassis, () -> w.field);
         w.chassis.setPose(new Pose2(0, 0, Math.toRadians(136)));
         AprilTagProcessor p = new AprilTagProcessor.Builder().setTagLibrary(AprilTagGameDatabase.getDecodeTagLibrary()).setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES).build();
         assertTrue(p instanceof SimVisionProcessor, "the simulator's AprilTagProcessorImpl should be built");

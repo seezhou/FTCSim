@@ -93,4 +93,37 @@ public class BioBuzzFieldTest {
         assertTrue(d.setOption("obelisk", "23"));
         assertEquals("23", d.option("obelisk"));
     }
+
+    @Test public void aSeasonNameInTheConfigNameSelectsTheField() {
+        assertEquals("BIOBUZZ", Field.nameFromHint("BioBuzz AI Futures"));
+        assertEquals("BIOBUZZ", Field.nameFromHint("our biobuzz bot"));
+        assertEquals("DECODE", Field.nameFromHint("Decode"));
+        assertNull(Field.nameFromHint("MyRobot"), "a name with no season in it leaves the default alone");
+        assertNull(Field.nameFromHint(null));
+    }
+
+    @Test public void decodeShowsOnlyTheSelectedObeliskFace() {
+        Field d = Field.decode();
+        assertTrue(d.rules().isTagVisible(d, tag(d, 21)));
+        assertFalse(d.rules().isTagVisible(d, tag(d, 22)));
+        assertFalse(d.rules().isTagVisible(d, tag(d, 23)));
+        assertTrue(d.rules().isTagVisible(d, tag(d, 24)), "goal tags are always present");
+        assertTrue(d.setOption("obelisk", "22"));
+        assertFalse(d.rules().isTagVisible(d, tag(d, 21)));
+        assertTrue(d.rules().isTagVisible(d, tag(d, 22)));
+        Field b = Field.biobuzz();
+        for (Field.AprilTag t : b.tags) assertTrue(b.rules().isTagVisible(b, t), "all BIOBUZZ tags are on the field");
+    }
+
+    @Test public void aHiveTipIsWorthTwentyPoints() {
+        SeasonRules rules = Field.biobuzz().rules();
+        assertEquals(20, rules.tipPoints());
+        assertEquals("RED HIVE tipped", rules.scoreEventLabel("RED"));
+        assertEquals(0, Field.decode().rules().tipPoints(), "DECODE does not score through field events");
+    }
+
+    private static Field.AprilTag tag(Field f, int id) {
+        for (Field.AprilTag t : f.tags) if (t.id == id) return t;
+        throw new AssertionError("no tag " + id);
+    }
 }

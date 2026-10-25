@@ -3,8 +3,10 @@ package ftcsim.physics;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Supplier;
 
 /**
  * The playing field in the FTC field coordinate system: origin at the centre, +Y from the red
@@ -180,13 +182,36 @@ public final class Field {
         if (changed) rebuilder.run();
     }
 
+    private static final Map<String, Supplier<Field>> FACTORIES = new LinkedHashMap<>();
+    static {
+        FACTORIES.put("DECODE", Field::decode);
+        FACTORIES.put("BIOBUZZ", Field::biobuzz);
+        FACTORIES.put("EMPTY", Field::empty);
+    }
+
+    /** Adds a season to the registry. A new season only needs its own factory and rules. */
+    public static void register(String name, Supplier<Field> factory) {
+        FACTORIES.put(name.trim().toUpperCase(Locale.ROOT), factory);
+    }
+
     public static Field byName(String name) {
         if (name == null) return decode();
-        switch (name.trim().toUpperCase()) {
-            case "EMPTY": return empty();
-            case "BIOBUZZ": return biobuzz();
-            case "DECODE": default: return decode();
+        Supplier<Field> factory = FACTORIES.get(name.trim().toUpperCase(Locale.ROOT));
+        return factory == null ? decode() : factory.get();
+    }
+
+    /**
+     * The registered season whose name appears in free-form text (a repository or configuration
+     * name), or null. Lets an auto-created configuration pick the right field without knowing
+     * any season by name.
+     */
+    public static String nameFromHint(String text) {
+        if (text == null) return null;
+        String upper = text.toUpperCase(Locale.ROOT);
+        for (String name : FACTORIES.keySet()) {
+            if (name.length() >= 3 && upper.contains(name)) return name;
         }
+        return null;
     }
 
     /** The CELL cluster with this exact name, or null (the DECODE goals are not clusters). */
@@ -215,6 +240,7 @@ public final class Field {
         f.goals.add(Goal.from(redGoal));
         f.options.add(new Option("obelisk", "Obelisk", new String[] { "21", "22", "23" }, new String[] { "21 (GPP)", "22 (PGP)", "23 (PPG)" }));
         f.state.put("obelisk", "21");
+        f.rules = new DecodeRules();
         return f;
     }
 

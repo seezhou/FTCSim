@@ -11,14 +11,7 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 ## 待修（代码）
 
-### 5. 赛季代码泄漏进了通用类（第一批已剥离，剩余第二笔）
-
-- **已做（2026-10-25）**：`Projectile`/`World`/`Field` 里的 BIOBUZZ 几何与规则已搬到同包 `BiobuzzRules`，引擎经 `SeasonRules`（`field.rules()`）调用；`Projectile.hitCells/resolveCell/rideInCell`、`World.tip/capture/enteringMouth/release`、`Field.CELL_*`/`HIVE_*` 已移除。`capturedIn`/`tipEvents`/`tipCounts` 等 UI 契约未变，测试 51/51 通过；并已用本机 Playwright（Chromium + SwiftShader）在真实浏览器验证 BIOBUZZ 场地消息、3D 场景、HIVE 切换与清场复位，无 page/console error。
-- **剩余位置**：`Simulator` 的 `20 * tips`、`obeliskTag`/`sim.obelisk`、`contains("biobuzz")` 启发式；`Field.byName` 的 `switch` 注册表；前端 `renderBioBuzz`/`hive.tip`/`+20 pts` 文案与 `field.js` fallback 常量。
-- **问题**：通用通信层/配置层与前端仍直接认识赛季名或硬编码分值
-- **影响**：换赛季仍需改 `Simulator` 和前端，而不只是新增一个规则实现
-- **建议**：第二笔再做注册表与 `tipPoints()`，并单独联调前端；设计与状态见 `seasons/01-season-abstraction.md`
-- **优先级**：中。剩余部分涉及协议/文案，建议在明年赛季确定前单独做
+（暂无。）
 
 ---
 
@@ -39,6 +32,7 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 | #2 rumbleIndicator 无效行 | `web/3d/gamepad.js:174` | 删除 `toggle('hidden', false)` 无效行；徽标显示实际由 CSS `.gamepad.rumbling` 控制（`gamepad.js:173` 的 `toggle('rumbling', on)` 才生效） |
 | #3 前端硬编码赛季常量与后端重复 | `web/3d/field.js`、`web/3d/webcam.js` + 后端 `Field.java`(`cellGeometry()`)、`CameraMount.java`(`toView()`)、`SimWebcamName.java`、`AprilTagProcessorImpl.java`(`MIN_FACING`)、`Simulator.java`(`fieldMessage` 补发 `cellGeometry`/`aprilTagMinFacing`) | 后端 `Field.cellGeometry()` 下发 CELL/HIVE 几何（第一批剥离后改由 `BiobuzzRules.extraFieldData()` 提供），`CameraMount.toView()` 下发结构化 mount，`AprilTagProcessorImpl.MIN_FACING` 下发阈值；前端 `field.js` 删除手抄常量改读 `cellGeom`（由 `fieldMessage.cellGeometry` 注入，保留兜底值），`webcam.js` 删除 `MOUNT_RE` 正则、`parseMount` 改读结构化对象、`minFacing` 由 `setMinFacing` 接收 |
 | #4 相机 mount 正则拆字符串 | `web/3d/webcam.js`(`MOUNT_RE`/`parseMount`) + 后端 `SimWebcamName.java`(`fillView`)、`CameraMount.java`(`toView()`) | 后端把相机 mount 改为结构化对象下发（`CameraMount.toView()`），前端 `parseMount` 读结构化字段、删除正则；`MIN_FACING` 阈值改由后端 `aprilTagMinFacing` 下发（`setMinFacing`），不再硬编码 |
+| #5 赛季代码泄漏进通用类 | `Projectile`/`World`/`Field`/`Simulator` + 前端 `3d/main.js`、`3d/field.js`、`2d/app.js` | 两批均已剥离：几何/规则在 `BiobuzzRules`/`DecodeRules`，引擎经 `SeasonRules` 调用；注册表 `Field.FACTORIES` + `nameFromHint`；计分用 `rules.tipPoints()`/`scoreEventLabel()` 发通用 `field.event`；obelisk 可见性移入 `rules.isTagVisible()`；前端 `renderFieldOptions` + 通用事件 toast，删除 fallback 常量与 `sim.obelisk`。65/65 测试、浏览器 smoke 通过。详见 `seasons/01-season-abstraction.md` |
 | #6 obstacle 高度未下发 | `Simulator.java:408` + 前端 `web/3d/field.js:199` | 后端 `fieldMessage` 补发 `height`；前端 `obstacleHeight()` 本就优先读 `o.height`，如今生效，不再按名字猜高度 |
 
 ---

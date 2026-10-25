@@ -26,6 +26,18 @@ public interface SeasonRules {
     /** True when a goal volume with this name is a real scoring target, not a season container. */
     default boolean isScoringGoal(String goalName, Field field) { return true; }
 
+    /**
+     * True when an AprilTag is physically present for vision and for the UI. A season can place
+     * alternative faces of one object at the same pose and show only the selected one.
+     */
+    default boolean isTagVisible(Field field, Field.AprilTag tag) { return true; }
+
+    /** Points a season scoring event is worth (a BIOBUZZ HIVE tip is 20; most events are 0). */
+    default int tipPoints() { return 0; }
+
+    /** Human-readable label for a season scoring event, for the UI toast. */
+    default String scoreEventLabel(String event) { return event; }
+
     /** Puts the movable elements back to their match-start state. */
     default void resetFieldState(Field field) {}
 
