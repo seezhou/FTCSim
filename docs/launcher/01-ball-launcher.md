@@ -120,7 +120,7 @@ refs:
 
 ## 9. 验证
 
-- 单元测试全绿（51 项，`./gradlew test`）：含弹道、反弹、进门、捕获不得分、4 球 tip 并倒球、朝下 CELL 不捕获、DECODE 照旧、清场复位、碾球捡拾（`drivingOverABallPicksItUp` / `aBallAwayFromTheRobotIsNotPickedUp`）。
+- 单元测试全绿（67 项，`./gradlew test`）：含弹道、反弹、进门、捕获不得分、4 球 tip 并倒球、朝下 CELL 不捕获、DECODE 照旧、清场复位、碾球捡拾（`drivingOverABallPicksItUp` / `aBallAwayFromTheRobotIsNotPickedUp`）。
 - 端到端（真实 `BioBuzzTele`，按住 gamepad1.a）：自动推断触发射出，弹量递减；滑块改仰角实时生效。
 - 静态检查：`node tools/check-web.mjs`（11 个前端模块语法）、`node tools/docs-check.mjs`（代码引用的 anchor/hash）。
 - 浏览器冒烟（2026-10-25）：本机已有 Node 24，Playwright 浏览器在 `%LOCALAPPDATA%\ms-playwright`；用其自带 Chromium（`--use-gl=angle --use-angle=swiftshader`）无头打开 3D 页，验证 BIOBUZZ field 消息、2 组 HIVE / 4 个 CELL / 16 个 tag、`redHive` 切换与 `sim.clearBalls` 复位、无 page/console error。临时脚本在 `build/ui-smoke.cjs`（已被 git 忽略）。
