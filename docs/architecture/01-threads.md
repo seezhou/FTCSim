@@ -5,12 +5,12 @@ refs:
     anchor: "private void loop()"
     lines: 285-319
     hash: f559e0effd7c
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/Simulator.java
     anchor: "private void broadcastLoop()"
     lines: 611-652
     hash: 839b36ebc9b1
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim 进程内线程拓扑（Phase 1 · 第 1 步：总览梳理）

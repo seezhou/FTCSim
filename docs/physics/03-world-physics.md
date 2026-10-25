@@ -5,12 +5,12 @@ refs:
     anchor: "public void step(double dt)"
     lines: 84-101
     hash: ab4a625feae5
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
     lines: 123-154
     hash: b0118a157fcd
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim 物理积分与世界（Phase 1 · 第 4 步）

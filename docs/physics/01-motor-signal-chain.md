@@ -5,12 +5,12 @@ refs:
     anchor: "public double controlStep(double dt)"
     lines: 126-153
     hash: 195dcd37c1a2
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/hardware/SimMotorController.java
     anchor: "public void setMotorPower(int port, double power)"
     lines: 69-74
     hash: 3f35a465f8da
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim 电机信号链图（Phase 1 · 第 2 步：电机信号链）

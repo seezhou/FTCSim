@@ -5,12 +5,12 @@ refs:
     anchor: "public void simFrame(CameraMount mount"
     lines: 165-253
     hash: 0a126747f897
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/org/firstinspires/ftc/vision/VisionPortalImpl.java
     anchor: "private void frameLoop()"
     lines: 78-95
     hash: 1f17ae93ffd6
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim Vision（Phase 1 · 第 6 步：`VisionPortalImpl` → `AprilTagProcessorImpl`）

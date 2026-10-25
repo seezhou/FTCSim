@@ -5,12 +5,12 @@ refs:
     anchor: "public static void gate()"
     lines: 86-94
     hash: f79128ee902e
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/hardware/HardwareBus.java
     anchor: "private static void charge(double millis, AtomicLong counter, long count)"
     lines: 73-83
     hash: f890793a4ba7
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim 真实感三件套（Phase 1 · 第 5 步：hub 时序延迟 / 暂停门 / 线程豁免）

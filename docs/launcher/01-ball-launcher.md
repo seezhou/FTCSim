@@ -5,12 +5,12 @@ refs:
     anchor: "public static final int HIVE_TIP_BALLS"
     lines: 290-290
     hash: 8995bfd71234
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
     lines: 123-154
     hash: b0118a157fcd
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim — 射球 / 发射器 / HIVE·CELL（现状总结）

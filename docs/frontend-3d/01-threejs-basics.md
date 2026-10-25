@@ -5,12 +5,12 @@ refs:
     anchor: "function animate()"
     lines: 524-553
     hash: 828f395e07a1
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/resources/web/3d/field.js
     anchor: "export function ftc(x, y, z = 0)"
     lines: 26-26
     hash: 428752ac3b3a
-    since: 2581a52
+    since: e9256b5
 ---
 
 # Three.js 零基础入门（Phase 2 准备篇 · 用 web 概念做类比）

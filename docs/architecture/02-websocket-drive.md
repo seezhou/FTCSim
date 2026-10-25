@@ -5,12 +5,12 @@ refs:
     anchor: "private Map<String, Object> stateMessage()"
     lines: 473-532
     hash: bcf940fb4b84
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/Simulator.java
     anchor: "private void sendHello(WebServer.Client client)"
     lines: 356-370
     hash: f8ce26c1202f
-    since: 2581a52
+    since: e9256b5
 ---
 
 # WebSocket 消息如何驱动 3D（Phase 2 · 第 1 步）

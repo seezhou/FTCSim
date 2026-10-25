@@ -5,12 +5,12 @@ refs:
     anchor: "function handle(m)"
     lines: 112-151
     hash: 2b74052c84f3
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/resources/web/3d/main.js
     anchor: "function animate()"
     lines: 524-553
     hash: 828f395e07a1
-    since: 2581a52
+    since: e9256b5
 ---
 
 # FTCSim Phase 2 总览（第 7 步：结构图 + 逐帧时序图）

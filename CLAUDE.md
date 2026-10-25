@@ -110,13 +110,15 @@ them all up front.
 | Physics | `docs/physics/03-world-physics.md` | `World.step` order, chassis kinematics, projectiles/launcher |
 | Physics | `docs/physics/04-hub-timing-gate.md` | hub latency, pause gate, thread exemption |
 | Vision | `docs/vision/01-vision.md` | AprilTag geometric detection (there are no camera frames) |
+| Vision | `docs/vision/02-occlusion.md` | AprilTag occlusion design draft (no impl yet): geometry inputs, obstacle / tag-to-tag ray tests |
 | Frontend 3D | `docs/frontend-3d/01-threejs-basics.md` | new to Three.js: core concepts with web analogies |
 | Frontend 3D | `docs/frontend-3d/02-field-3d-build.md` | how the field description becomes 3D geometry |
 | Frontend 3D | `docs/frontend-3d/03-robot-parts.md` | how parts are placed and animated from device mounts |
 | Frontend 3D | `docs/frontend-3d/04-webcam-pip.md` | picture-in-picture camera and the AprilTag boxes |
 | Frontend 3D | `docs/frontend-3d/05-phase2-overview.md` | Phase 2 summary: frontend module topology + per-frame timing |
+| Frontend 3D | `docs/frontend-3d/06-inputs-and-overlays.md` | balls / overlay / drag / gamepad four-module diagrams (conclusions 41–44) |
 | Launcher | `docs/launcher/01-ball-launcher.md` | projectiles, launcher config/inference, HIVE/CELL, 9 pitfalls |
-| Seasons | `docs/seasons/01-season-abstraction.md` | reusable vs season-specific layering; adding a season |
+| Seasons | `docs/seasons/01-season-abstraction.md` | reusable vs season-specific layering; interface signatures + migration steps for stripping season code |
 | Known issues | `docs/known-issues.md` | known bugs and deferred fixes |
 | Research log | `notes/research/sim-physics-research-notes.md` | running conclusions log: Phase 1 = 1–27, Phase 2 = 28–47 |
 

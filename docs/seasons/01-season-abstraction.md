@@ -5,12 +5,12 @@ refs:
     anchor: "public static Field byName(String name)"
     lines: 170-177
     hash: 0cba9b497f22
-    since: 2581a52
+    since: e9256b5
   - path: sim/src/main/java/ftcsim/physics/Projectile.java
     anchor: "private void resolveCell(Field.Cluster cl)"
     lines: 203-249
     hash: d26091e51d6b
-    since: 2581a52
+    since: e9256b5
 ---
 
 # 赛季可复用性分层图（通用引擎 / 几何数据 / 赛季插件）
@@ -207,3 +207,100 @@ flowchart TB
 - 世界层越界：`World.java:180-182`（`onGoalReached` 分赛季）、`:216-225`（`checkCellCapture`/`capturedIn`）、`:232-245`（`tip`）
 - 通用能力已具备：`MotorState.java:183-198`（`stepLoad` 含惯性/摩擦/重力）、`:200-203`（`applyLimits` 行程限位）；`ServoState.java:40-57`（位置/CR 模式）
 - 前端：`main.js:118/128`（`field.rebuild` 通用重建）、`:317-349`（`renderBioBuzz` 按 options 自动生成 UI）
+
+---
+
+## 附录 A：赛季插件接口签名（`SeasonGame`）
+
+下面把图 3 的"统一接口 ①几何 ②交互 ③计分 ④选项"落成可落地的 Java 签名。每个赛季一个实现，挂在它自己构造的 `Field` 上；通用引擎只通过接口调用，不再出现赛季名 / 几何。
+
+```java
+package ftcsim.physics;
+
+/** 赛季游戏插件：场地几何 + 投射物交互 + 计分状态转移 + 赛季选项。 */
+public interface SeasonGame {
+    // ── 注册 / 标识 ──
+    String name();                 // "DECODE" | "BIOBUZZ" | "EMPTY"
+
+    // ── 场地数据（原 Field.decode()/biobuzz()/buildHives()）
+    Field buildField();            // 全部 Obstacle/Zone/Shape/Option/Cluster/Tag/Goal + 挂 this
+    void resetFieldState(Field f); // 比赛开始：原 Field.resetHives() 语义；EMPTY 为空实现
+
+    // ── 投射物每一步的交互（原 Projectile.hitCells/resolveCell）
+    void collide(Projectile p, Field f);   // 在 Projectile.step 中取代 hitCells；DECODE 为空
+
+    // ── 进球/捕获判定（取代 World.onGoalReached 的 if 分赛季）
+    /** 球进入某 goal 后的赛季裁决。返回 SCORE（计入 scoreEvents）/ IGNORE。 */
+    GoalOutcome resolveGoalReached(String goalName, Projectile p, Field f);
+
+    // ── 捕获（取代 World.checkCellCapture/enteringMouth/capture）
+    /** 返回应捕获到的 Cluster，或 null。 */
+    Field.Cluster tryCapture(Projectile p, Field f);
+    void onCaptured(Projectile p, Field.Cluster cell, World w);  // 分配 slot、达阈值触发 tip
+
+    // ── HIVE 倾覆（取代 World.tip/release + Field.HIVE_TIP_BALLS）
+    boolean shouldTip(String cellName, World w);     // 阈值判定（原 capturedIn>=HIVE_TIP_BALLS）
+    void tip(String cellName, World w);              // 翻转选项 + 释放球 + 发 tipEvents
+    void releaseCaptured(Projectile p, Field.Cluster cell);  // 原 World.release
+
+    // ── 计分（取代 Simulator 里硬编码的 20 分）
+    int tipPoints();                 // BIOBUZZ: 20；DECODE: 0
+
+    // ── 选项声明（自动生成 UI 下拉，原 Field.biobuzz 里的 Option 可移到这里或仍留 buildField）
+}
+```
+
+配套判定值对象：
+
+```java
+enum GoalOutcome { SCORE, IGNORE }
+// CAPTURE 用带簇名的重载 / 记录：record Capture(String clusterName) {}
+```
+
+**调用时机（与现状一一对应，确保纯挪位置）**：
+
+- `Projectile.step(dt,f)` → 末尾把 `hitCells(f)` 换成 `f.game().collide(p,f)`。
+- `World.stepProjectiles`：把 `onGoalReached` 的 if 换成 `f.game().resolveGoalReached(...)`；把 `checkCellCapture/capture` 换成 `tryCapture/onCaptured`；把 `tip/release/capturedIn` 换成 `shouldTip/tip/releaseCaptured`。
+- `World.clearProjectiles`：把 `field.resetHives()` 换成 `field.game().resetFieldState(field)`。
+- `Simulator.drainTips`：`points` 改为 `field.game().tipPoints() * tips`。
+- `Simulator` 的 `field = Field.byName(config.field)` 不变（注册表见附录 B）。
+
+## 附录 B：数据模型与挂载方式
+
+**现状**（`Field.java:170-177`）：`byName` 用 `switch` 硬匹配，每个 case 调一个静态工厂（`decode()`/`empty()`/`biobuzz()`）；`World.java:20` 默认 `Field.decode()`，`Simulator.java:92` 用 `config.field` 覆盖。`configs/*.json` 的 `field` 字段是字符串（`"DECODE"` / `"biobuzz"`）。
+
+**建议改造**：
+
+1. 引入 `interface SeasonGame` 与其实现 `DecodeGame` / `BiobuzzGame` / `EmptyGame`（落在 `ftcsim/physics/season/`）。
+2. `Field` 增加一个**包级** `SeasonGame game` 字段，由各工厂在构造末尾 `f.game = this;`；通用引擎（Projectile/World/Simulator）一律经 `field.game` 取赛季行为，不再直接触碰 `Field.CELL_*` / `HIVE_TIP_BALLS`。
+3. 注册表从 `switch` 改为 `Map<String, Supplier<Field>>`（或 `Map<String, SeasonGame>`），`byName` 查表；新增赛季 = 注册一行，不改 `Projectile/World`。
+4. 赛季几何常量（`CELL_PENT` / `CELL_DEPTH_IN` / `HIVE_PIVOT_Z` 等）随实现类搬走（原 `Field.java:236-253,290`），`pentagonSd/pentagonClosest/cellSlotPosition` 也迁到 `BiobuzzGame`（或留在 Field 但标记为 CELL 专属、仅由插件调用——更干净是随插件搬）。
+5. **前端去重**：`fieldMessage` 增加把 CELL 几何（`CELL_PENT`/深度/`HIVE_PIVOT_Z` 等）作为数据下发（例如在 `clusters` 上挂 `cellGeom`，或新增 `cellGeometry` 段），前端 `field.js:232-240` 的手抄常量删除，改为读下发值；前端仍用 `field.name` 仅做"是否绘制 HIVE 3D 机构"的总开关（因为那部分视觉模型确实按赛季），但**几何数值不再双份**。
+
+## 附录 C：迁移步骤（按风险 / 依赖排序，纯挪位置优先）
+
+| 步 | 目标 | 改动文件 | 纯挪 vs 改功能 | 风险 / 依赖 |
+|---|---|---|---|---|
+| **0. 先固化测试** | 确保 `HiveTipTest` / `BioBuzzFieldTest` 当前绿，作为回归基线 | （不改） | — | 低，前置 |
+| **1. 抽 `SeasonGame` 接口 + 三实现空壳** | 接口落 `ftcsim/physics/season/`；实现先委托回现有静态方法 | 新增接口；`Field` 加 `game` 字段；`byName` 改查 `Map`，但工厂体仍调现有 `decode()/biobuzz()` | 纯挪注册表结构 | 低；不改任何物理行为 |
+| **2. 搬赛季常量与几何辅助** | `CELL_PENT`/`CELL_DEPTH_IN`/`HIVE_PIVOT_Z`/`pentagonSd`/`pentagonClosest`/`cellSlotPosition` 从 `Field` 移到 `BiobuzzGame` | `Field.java`、`BiobuzzGame.java`、调用方改 `field.game` | 纯挪位置 | 中；靠第 0 步测试保底 |
+| **3. 搬 CELL 碰撞 / 捕获 / 随动** | `hitCells/resolveCell/rideInCell` → `BiobuzzGame`；`Projectile` 去 `capturedIn/slot` 之外保留通用物理 | `Projectile.java`、`BiobuzzGame.java` | 纯挪；`Projectile.step` 仅把 `hitCells(f)` 换 `f.game().collide(p,f)` | 中；对齐 `ProjectileTest`（通用）与 `HiveTipTest` |
+| **4. 搬 HIVE 倾覆 + 计分** | `World.tip/release/capturedIn/onGoalReached/checkCellCapture/enteringMouth/capture` → `BiobuzzGame`；`Field.resetHives` → `resetFieldState`；`Simulator` 的 `20*tips` → `game.tipPoints()` | `World.java`、`Field.java`、`Simulator.java`、`BiobuzzGame.java` | 纯挪 + 阈值/分值参数化 | 中高；事件队列 `tipEvents/tipCounts` 可保留在 World（通用容器），只把"何时入队"委托插件 |
+| **5. 去前端双份几何** | `field.js:232-240` 常量改为读 `fieldMessage` 下发；`main.js` 的 `renderBioBuzz` 仍按 `field.name` 总开关但不再手抄数 | `field.js`、`main.js`、`Simulator.fieldMessage` | 改功能（数据传输方式），行为不变 | 中；需前端联调 |
+| **6. 收敛配置选赛季** | `Simulator.java:157` 的 `contains("biobuzz")` 启发式可保留或改为显式 `field` 映射；`World.java:20` 默认 `decode()` 仅占位，建议注释标清 | `Simulator.java` | 可选优化 | 低 |
+| **7. 落地 FieldImages 索引** | `FieldImages` 按 `SeasonGame.name()` 取 png（现状已按赛季分两份，保持） | （基本不动） | 保持现状 | 低 |
+
+> 优先级对应文档的 P0（步 3、4）→ P1（步 2、5）→ P2（步 6、7）。**"现在先纯挪位置、不改功能"即步 1–4**，低风险可立即做。
+
+## 附录 D：补充的泄漏点（Simulator 与前端，原清单未点名）
+
+- `Simulator.java:596` `msg.put("points", 20 * tips)` —— HIVE 20 分硬编码进通信层（应改 `field.game().tipPoints() * tips`）。
+- `Simulator.java:157` `if (c.name.toLowerCase().contains("biobuzz")) c.field = "BIOBUZZ";` —— 按配置名猜赛季的启发式。
+- `Simulator` 对 `obelisk` / `redHive` 等赛季选项名的特判（`:264-273`）。
+- 前端：`web/3d/field.js:232-240` 手抄 `CELL_PENT`/`CELL_DEPTH`/`HIVE_PIVOT_Z` 等；`main.js:120,129` 每次重建都调 `renderBioBuzz(f)`（函数名即赛季名）；`:148` 监听 `hive.tip`、`:253-255` `onHiveTip` 硬编码 `+20 pts` 文案；`2d/app.js:159-160` `f.name==='DECODE'` 过滤 obelisk 标签。
+
+## 附录 E：测试锚定（迁移"不得破坏"的回归基线）
+
+- `HiveTipTest.java`：捕获 / 倾覆 / 复位 / DECODE 仍进球（`:48-150`）。
+- `BioBuzzFieldTest.java`：4 个 CELL 簇、标签 30-45、倾角 ±30°、倾覆交换、byName 选择（`:14-79`）。
+- `ProjectileTest.java`：通用物理，用 `Field.decode()`，**不含赛季**（纯通用，可保留）。
