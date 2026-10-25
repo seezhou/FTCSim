@@ -48,6 +48,12 @@ public class LauncherControllerTest {
         return m;
     }
 
+    /** Advance the world in its fixed 1 ms steps, so the salvo sees the same clock as a run. */
+    private static void advance(World w, double seconds) {
+        int steps = (int) Math.round(seconds / World.DT);
+        for (int i = 0; i < steps; i++) w.step();
+    }
+
     @Test
     public void ballLeavesAtTheWheelSurfaceSpeed() {
         World w = worldWithFlywheel(6000);
@@ -81,10 +87,16 @@ public class LauncherControllerTest {
         c.configure(spec(launcher("speedFrom", FLYWHEEL, "capacity", 2)));
         assertEquals(2, c.remaining());
         assertTrue(c.fire() > 0);
-        assertTrue(c.fire() > 0);
-        assertEquals(0, c.remaining());
-        assertEquals(0.0, c.fire(), 1e-9);   // empty: nothing leaves
+        assertEquals(0, c.remaining(), "one trigger commits the whole magazine");
+        assertEquals(1, w.projectiles.size(), "the rest of the salvo waits for its cadence");
+        assertEquals(0.0, c.fire(), 1e-9, "a salvo is already running");
+        advance(w, 0.4);
+        c.poll();
+        assertEquals(1, w.projectiles.size(), "balls are spaced by salvoIntervalSec");
+        advance(w, 0.1);
+        c.poll();
         assertEquals(2, w.projectiles.size());
+        assertEquals(0.0, c.fire(), 1e-9);   // empty: nothing leaves
         c.reload();
         assertEquals(2, c.remaining());
     }
@@ -173,7 +185,8 @@ public class LauncherControllerTest {
         LauncherController c = new LauncherController(w);
         c.configure(spec(launcher("speedFrom", FLYWHEEL, "capacity", 4, "ballRadiusIn", 1.4)));
         c.fire();
-        assertEquals(3, c.remaining());
+        assertEquals(0, c.remaining(), "one trigger commits the whole magazine");
+        assertEquals(1, w.projectiles.size(), "the rest of the salvo waits for its cadence");
         // a loose ball resting on the floor, right under the chassis
         w.spawnProjectile(0, 0, 1.4, 0, 0, 0, 1.4);
         w.step();
@@ -182,7 +195,7 @@ public class LauncherControllerTest {
         // the UI broadcast loop turns the event into a magazine refill (capped at capacity)
         Integer id;
         while ((id = w.pickupEvents.poll()) != null) c.collect();
-        assertEquals(4, c.remaining());
+        assertEquals(1, c.remaining(), "the picked-up ball goes back into the magazine");
     }
 
     @Test
