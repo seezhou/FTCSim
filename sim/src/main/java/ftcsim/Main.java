@@ -17,6 +17,7 @@ public final class Main {
             switch (a) {
                 case "--repo": o.repo = new File(args[++i]); break;
                 case "--port": o.port = Integer.parseInt(args[++i]); break;
+                case "--host": o.host = args[++i]; break;
                 case "--config": o.config = new File(args[++i]); break;
                 case "--samples": o.includeSamples = true; break;
                 case "--prebuilt": o.prebuilt = true; break;
@@ -39,8 +40,9 @@ public final class Main {
 
     private static void usage() {
         System.out.println("FTCSim - desktop simulator for FTC robot code\n" +
-            "usage: ftcsim [--repo <FtcRobotController project>] [--port 8000] [--config robot.json]\n" +
-            "              [--samples] [--prebuilt] [--no-browser] [--data <dir>]\n" +
+            "usage: ftcsim [--repo <FtcRobotController project>] [--port 8000] [--host 127.0.0.1]\n" +
+            "              [--config robot.json] [--samples] [--prebuilt] [--no-browser] [--data <dir>]\n" +
+            "  --host      address to bind the web UI to (default 127.0.0.1; 0.0.0.0 exposes it to the network)\n" +
             "  --samples   also load the FtcRobotController sample OpModes\n" +
             "  --prebuilt  use classes compiled by Android Studio (TeamCode/build/...) instead of compiling sources\n");
     }

@@ -3,9 +3,11 @@ package ftcsim.web;
 import ftcsim.log.SimLog;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
@@ -22,8 +24,16 @@ import java.util.function.BiFunction;
 /**
  * A small dependency-free HTTP/1.1 + WebSocket (RFC 6455) server that serves
  * the simulator UI (static resources) and a JSON message channel.
+ *
+ * It holds full control of the robot, so it binds to loopback by default and only accepts
+ * requests addressed to that host. Requests carrying a foreign Host header are rejected even
+ * after a DNS-rebinding attack points a public name at 127.0.0.1, and cross-origin WebSocket
+ * upgrades (which are not covered by CORS) are refused by comparing Origin with Host.
+ * Binding beyond loopback is an explicit opt-in ({@code --host}).
  */
 public final class WebServer {
+    public static final String DEFAULT_HOST = "127.0.0.1";
+
     public interface MessageHandler { void onMessage(Client client, String text); }
     public interface HttpHandler { Response handle(String method, String path, Map<String, String> query, byte[] body); }
 
@@ -136,6 +146,10 @@ public final class WebServer {
         }
     }
 
+    private final String host;
+    private final InetAddress bindAddress;
+    private final boolean loopbackOnly;
+    private final boolean wildcardBind;
     private final int port;
     private final String resourceRoot;
     private final MessageHandler messageHandler;
@@ -146,18 +160,25 @@ public final class WebServer {
     private volatile boolean running;
     private final File overrideDir;
 
-    public WebServer(int port, String resourceRoot, File overrideDir, MessageHandler messageHandler) {
+    public WebServer(String host, int port, String resourceRoot, File overrideDir, MessageHandler messageHandler) {
+        this.host = host;
+        try { this.bindAddress = InetAddress.getByName(host); }
+        catch (UnknownHostException e) { throw new IllegalArgumentException("Unknown bind address: " + host, e); }
+        this.loopbackOnly = bindAddress.isLoopbackAddress();
+        this.wildcardBind = bindAddress.isAnyLocalAddress();
         this.port = port; this.resourceRoot = resourceRoot; this.overrideDir = overrideDir; this.messageHandler = messageHandler;
     }
 
     public void addApi(String pathPrefix, HttpHandler h) { apiHandlers.put(pathPrefix, h); }
     public List<Client> clients() { return clients; }
     public int port() { return serverSocket == null ? port : serverSocket.getLocalPort(); }
+    /** True when the socket only accepts connections from this machine. */
+    public boolean isLoopbackOnly() { return loopbackOnly; }
 
     public void start() throws IOException {
         serverSocket = new ServerSocket();
         serverSocket.setReuseAddress(true);
-        serverSocket.bind(new InetSocketAddress(port));
+        serverSocket.bind(new InetSocketAddress(bindAddress, port));
         running = true;
         Thread t = new Thread(() -> {
             while (running) {
@@ -200,6 +221,21 @@ public final class WebServer {
                 if (parts.length < 2) break;
                 String method = parts[0];
                 String fullPath = parts[1];
+                String hostHeader = headers.get("host");
+                if (hostHeader == null || hostHeader.isEmpty()) {
+                    writeResponse(out, Response.text(400, "missing Host header"), false);
+                    break;
+                }
+                if (!allowedHost(hostHeader)) {
+                    SimLog.w("WebServer", "rejected request with Host " + hostHeader);
+                    writeResponse(out, Response.text(403, "forbidden host"), false);
+                    break;
+                }
+                if (!sameOrigin(headers.get("origin"), hostHeader)) {
+                    SimLog.w("WebServer", "rejected cross-origin request from " + headers.get("origin"));
+                    writeResponse(out, Response.text(403, "cross-origin request refused"), false);
+                    break;
+                }
                 String path = fullPath, queryString = "";
                 int q = fullPath.indexOf('?');
                 if (q >= 0) { path = fullPath.substring(0, q); queryString = fullPath.substring(q + 1); }
@@ -227,6 +263,86 @@ public final class WebServer {
         } finally {
             try { socket.close(); } catch (IOException ignored) {}
         }
+    }
+
+    /**
+     * Only the address we bound to (and, for a loopback bind, the usual loopback names) may be
+     * used in Host. Without this a page on {@code http://evil.example} whose DNS entry points at
+     * 127.0.0.1 could drive the robot through the browser — DNS rebinding defeats the loopback bind.
+     */
+    private boolean allowedHost(String hostHeader) {
+        String h = hostPart(hostHeader);
+        if (h.isEmpty()) return false;
+        if (loopbackOnly) return isLoopbackName(h);
+        // A wildcard bind opted into "any interface"; interface names change too often to enumerate.
+        if (wildcardBind) return true;
+        if (isLoopbackName(h)) return true;
+        if (h.equals(this.host.toLowerCase(Locale.ROOT))) return true;
+        if (h.equals(bindAddress.getHostAddress().toLowerCase(Locale.ROOT))) return true;
+        // Numeric addresses are fine: rebinding attacks need a domain name, since a literal IP
+        // in the URL is sent as-is.
+        return isIpLiteral(h);
+    }
+
+    /**
+     * Same-origin check for the headers browsers attach to requests. WebSocket upgrades are not
+     * subject to CORS, so without this any page could open ws://localhost:8000/ws and control the
+     * robot. Requests from tools (no Origin header) stay allowed; they are already constrained by
+     * the loopback bind and the Host check.
+     */
+    private static boolean sameOrigin(String origin, String hostHeader) {
+        if (origin == null || origin.isEmpty()) return true;
+        String o = origin.trim().toLowerCase(Locale.ROOT);
+        if ("null".equals(o)) return false;
+        int sep = o.indexOf("://");
+        if (sep <= 0) return false;
+        String scheme = o.substring(0, sep);
+        if (!"http".equals(scheme) && !"https".equals(scheme)) return false;
+        String authority = o.substring(sep + 3);
+        if (authority.isEmpty() || authority.indexOf('/') >= 0) return false;
+        String defaultPort = "https".equals(scheme) ? "443" : "80";
+        return normalizeAuthority(authority, defaultPort).equals(normalizeAuthority(hostHeader, "80"));
+    }
+
+    private static String hostPart(String authority) {
+        String a = authority.trim().toLowerCase(Locale.ROOT);
+        if (a.startsWith("[")) {
+            int end = a.indexOf(']');
+            return end > 0 ? a.substring(1, end) : "";
+        }
+        int first = a.indexOf(':');
+        if (first >= 0 && first == a.lastIndexOf(':')) return a.substring(0, first);
+        return a; // no port, or a bare IPv6 literal
+    }
+
+    private static String normalizeAuthority(String authority, String defaultPort) {
+        String a = authority.trim().toLowerCase(Locale.ROOT);
+        String h = hostPart(a);
+        String port = defaultPort;
+        int first = a.indexOf(':');
+        if (!a.startsWith("[")) {
+            if (first >= 0 && first == a.lastIndexOf(':')) port = a.substring(first + 1);
+        } else {
+            int end = a.indexOf(']');
+            if (end >= 0 && end + 1 < a.length() && a.charAt(end + 1) == ':') port = a.substring(end + 2);
+        }
+        if (port.isEmpty()) port = defaultPort;
+        return h + ":" + port;
+    }
+
+    private static boolean isLoopbackName(String h) {
+        return h.equals("localhost") || h.equals("::1") || h.startsWith("127.");
+    }
+
+    private static boolean isIpLiteral(String h) {
+        if (h.indexOf(':') >= 0) return true;
+        String[] p = h.split("\\.");
+        if (p.length != 4) return false;
+        for (String s : p) {
+            if (s.isEmpty() || s.length() > 3) return false;
+            for (int i = 0; i < s.length(); i++) if (s.charAt(i) < '0' || s.charAt(i) > '9') return false;
+        }
+        return true;
     }
 
     private Response route(String method, String path, Map<String, String> query, byte[] body) {
@@ -294,7 +410,6 @@ public final class WebServer {
             "Content-Length: " + r.body.length + "\r\n" +
             (r.location != null ? "Location: " + r.location + "\r\n" : "") +
             "Cache-Control: no-cache\r\n" +
-            "Access-Control-Allow-Origin: *\r\n" +
             "Connection: " + (keepAlive ? "keep-alive" : "close") + "\r\n\r\n";
         out.write(head.getBytes(StandardCharsets.ISO_8859_1));
         out.write(r.body);

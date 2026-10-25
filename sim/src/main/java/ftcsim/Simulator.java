@@ -34,6 +34,7 @@ public final class Simulator {
     public static final class Options {
         public File repo;
         public int port = 8000;
+        public String host = WebServer.DEFAULT_HOST;
         public File config;
         public boolean includeSamples;
         public boolean prebuilt;
@@ -121,10 +122,16 @@ public final class Simulator {
             RobotLog.ww(TAG, "No team repository configured: start FTCSim with --repo <path to your FtcRobotController project>");
         }
 
-        web = new WebServer(opts.port, "/web", opts.webOverrideDir, this::onMessage);
+        web = new WebServer(opts.host, opts.port, "/web", opts.webOverrideDir, this::onMessage);
         web.addApi("/api/", this::api);
         web.start();
-        String url = "http://localhost:" + web.port() + "/";
+        String displayHost = opts.host;
+        if (displayHost.equals("0.0.0.0") || displayHost.equals("::")) displayHost = "localhost";
+        else if (displayHost.indexOf(':') >= 0 && !displayHost.startsWith("[")) displayHost = "[" + displayHost + "]";
+        String url = "http://" + displayHost + ":" + web.port() + "/";
+        if (!web.isLoopbackOnly()) {
+            RobotLog.ww(TAG, "Web UI bound to %s: reachable from other machines (--host). Anyone who can reach it can control the robot.", opts.host);
+        }
         RobotLog.ii(TAG, "FTCSim UI: %s", url);
         StdoutCapture.originalOut().println("\n  FTCSim is running: open " + url + " in your browser\n");
         Thread bc = new Thread(() -> { ftcsim.hardware.HardwareBus.markExemptThread(); broadcastLoop(); }, "ftcsim-broadcast");

@@ -44,6 +44,7 @@ main class directly). Other options:
 ```bash
 ./gradlew run -Prepo=../Decode --args="--port 9000 --no-browser"
 ./gradlew run -Prepo=../MyRepo --args="--config /absolute/path/to/configs/MyRobot.json"
+./gradlew run -Prepo=../MyRepo --args="--host 0.0.0.0"  # expose the UI to other machines (opt-in)
 ./gradlew run -Prepo=../MyRepo --args="--samples"      # also load the official sample OpModes
 ./gradlew run -Prepo=../MyRepo --args="--prebuilt"     # use classes Android Studio built (Kotlin projects)
 ```
@@ -62,6 +63,12 @@ Team dependencies from the repository's Gradle files are resolved automatically;
 README for what that covers.
 
 ## The UI
+
+The web UI listens on `127.0.0.1` only. Requests must be addressed to that host (`localhost` also
+works), and WebSocket/API requests from another origin are refused, so a web page you happen to have
+open cannot drive the robot and DNS rebinding cannot reach the port. `--host 0.0.0.0` (or a specific
+LAN address) opts into network access; anyone who can reach the port can control the robot, so only
+do that on a network you trust.
 
 Two front ends ship side by side:
 
