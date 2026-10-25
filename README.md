@@ -43,16 +43,16 @@ main class directly). Other options:
 
 ```bash
 ./gradlew run -Prepo=../Decode --args="--port 9000 --no-browser"
-./gradlew run -Prepo=../MyRepo --args="--config /absolute/path/to/configs/MyRobot.json"
+./gradlew run -Prepo=../MyRepo --args="--config configs/MyRobot.json"
 ./gradlew run -Prepo=../MyRepo --args="--host 0.0.0.0"  # expose the UI to other machines (opt-in)
 ./gradlew run -Prepo=../MyRepo --args="--samples"      # also load the official sample OpModes
 ./gradlew run -Prepo=../MyRepo --args="--prebuilt"     # use classes Android Studio built (Kotlin projects)
 ```
 
-`gradlew run` executes the simulator with `sim/` as its working directory, so an explicit relative
-path in `--config`, `--data` or `--web` resolves against `sim/`. (Defaults are unaffected: they use
-`ftcsim.home`, which the Gradle run sets to the repository root, so the default config lives in
-`configs/` here.) Use an absolute path, or `../configs/...`, for an explicit `--config`.
+Relative paths in `--config`, `--data` and `--web` are resolved against the repository root (the
+`ftcsim.home` property, which the Gradle run sets for you), not against the working directory.
+`--config configs/MyRobot.json` therefore works no matter where the simulator was started; if you
+launch the main class yourself, set `-Dftcsim.home=<repo root>` to get the same behaviour.
 
 The default team repository can also be set once in `ftcsim.properties` (committed here as
 `repo=../FtcRobotController`): with that file present you can run `./gradlew run` and skip `-Prepo`.

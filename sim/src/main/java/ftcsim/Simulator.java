@@ -42,6 +42,22 @@ public final class Simulator {
         public File home = new File(System.getProperty("ftcsim.home", "."));
         public File dataDir;
         public File webOverrideDir;
+
+        /**
+         * Explicit relative paths follow the repository root, not the process working directory:
+         * {@code gradlew run} starts Java in {@code sim/}, so {@code --config configs/X.json}
+         * would otherwise create the config in the wrong place.
+         */
+        void resolvePaths() {
+            config = resolveAgainstHome(config);
+            dataDir = resolveAgainstHome(dataDir);
+            webOverrideDir = resolveAgainstHome(webOverrideDir);
+        }
+
+        private File resolveAgainstHome(File f) {
+            if (f == null || f.isAbsolute()) return f;
+            return new File(home, f.getPath());
+        }
     }
 
     private final Options opts;
@@ -76,6 +92,7 @@ public final class Simulator {
 
     // ------------------------------------------------------------------ startup
     public void start() throws IOException {
+        opts.resolvePaths();
         startedAt = System.currentTimeMillis();
         File data = opts.dataDir != null ? opts.dataDir : new File(opts.home, "build/ftcsim-data");
         data.mkdirs();
