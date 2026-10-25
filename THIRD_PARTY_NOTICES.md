@@ -14,7 +14,7 @@ simulated team repository at build time and remain under their own licenses.
 | Component | Version | License | How FTCSim uses it |
 |---|---|---|---|
 | FIRST Tech Challenge SDK — RobotCore, Hardware, FtcCommon, Vision | the version declared by the team repository (10.x / 11.x / 12.x) | BSD-3-Clause-style FIRST license (`licenses/BSD-3-Clause-FIRST.txt`) | `ftc-sdk` merges their `classes.jar` into the desktop SDK jar |
-| [Three.js](https://threejs.org/) | 0.170.0 | MIT (`licenses/MIT.txt`) | loaded by the 3D view from jsDelivr at runtime |
+| [Three.js](https://threejs.org/) | 0.170.0 | MIT (`licenses/MIT.txt`) | vendored in `sim/src/main/resources/web/3d/vendor/` (core + OrbitControls) |
 | [EasyOpenCV](https://github.com/OpenFTC/EasyOpenCV) | 1.7.3 | MIT, as declared in the Maven POM (`licenses/MIT.txt`) | `ftc-sdk` bundles its Java classes |
 | [OpenFTC AprilTag](https://github.com/OpenFTC/apriltag) | 2.1.0 | MIT, as declared in the Maven POM (`licenses/MIT.txt`) | `ftc-sdk` bundles its Java classes |
 | OpenCV repackaged for Android (`org.openftc:opencv-repackaged-bundled-dylibs`) | 4.10.0-A | MIT, as declared in the Maven POM; OpenCV itself is Apache-2.0 (`licenses/Apache-2.0.txt`) | `ftc-sdk` bundles its Java classes; native libraries are not loaded |
