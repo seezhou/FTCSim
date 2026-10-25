@@ -1,12 +1,12 @@
 ---
-summary: 通用引擎 vs 赛季专属的分层；泄漏点与剥离建议
+summary: 通用引擎 vs 赛季专属的分层；第一批剥离已落地，剩余清单
 refs:
   - path: sim/src/main/java/ftcsim/physics/Field.java
     anchor: "public static Field byName(String name)"
-    hash: d2f6e8c3ea1e
-  - path: sim/src/main/java/ftcsim/physics/Projectile.java
-    anchor: "private void resolveCell(Field.Cluster cl)"
-    hash: e2e3284f986f
+    hash: f2ce96c39006
+  - path: sim/src/main/java/ftcsim/physics/BiobuzzRules.java
+    anchor: "private static void resolveCell(Projectile p, Field.Cluster cl)"
+    hash: cb3fa800149b
 ---
 
 # 赛季可复用性分层图（通用引擎 / 几何数据 / 赛季插件）
@@ -15,6 +15,8 @@ refs:
 > 本文回答一个问题：**换赛季时，哪些代码能不动、哪些必须动，以及"必须动"的部分如何收敛到最小范围。**
 
 核心结论：**变的从来不是"机器人怎么动"，而是"场上那个东西怎么被操作、怎么算得分"**。前者是通用能力（电机 + 伺服 + 限位，早已具备），后者才是每季全新的部分。
+
+> **状态（2026-10-25）**：第一批剥离已落地。新增 `SeasonRules`（引擎调用的赛季行为接口）与 `BiobuzzRules`（BIOBUZZ 实现，同包）；`Projectile` 不再实现 CELL 碰撞/捕获/随动，`World` 不再实现 tip/release，`Field` 不再持有 `CELL_*`/`HIVE_*` 几何。引擎统一经 `field.rules()` 调用。**尚未做**：注册表/`SeasonGame` 公共插件接口（附录 A）、`Simulator` 的 `20 * tips` 与 obelisk 收敛、前端文案与 fallback 常量。下文图 2 与「泄漏点清单」保留为剥离前的记录。
 
 ---
 
@@ -61,9 +63,9 @@ flowchart TB
 
 ---
 
-## 图 2：现状的「泄漏」——C 的代码混进了 A（本图是重点）
+## 图 2：第一批剥离前的「泄漏」（历史记录，已在 2026-10-25 处理）
 
-理想情况下 C 层代码不该出现在 A 层的类里，但目前有几处越界。红色是需要优先处理的部分。
+理想情况下 C 层代码不该出现在 A 层的类里，剥离前有几处越界。下面保留原图，便于对照第一批改了什么；当前代码里 P0/P1 的几何与规则已不在 `Projectile`/`World`/`Field`。
 
 ```mermaid
 flowchart LR
@@ -178,37 +180,41 @@ flowchart TB
 
 ## 泄漏点清单与处理优先级
 
-| 优先级 | 泄漏点 | 位置 | 建议 |
+| 优先级 | 泄漏点 | 状态 | 现在的位置 / 剩余工作 |
 |---|---|---|---|
-| **P0** | CELL 五边形碰撞写在通用物理类 | `Projectile.java:190-249`（`hitCells`/`resolveCell`/`rideInCell`） | 抽到赛季插件，`Projectile` 只保留通用质点物理 |
-| **P0** | HIVE 倾覆写在通用世界类 | `World.java:180-182`（if 分赛季）、`:232-245`（`tip`） | 抽到赛季插件，阈值与效果参数化 |
-| **P1** | 赛季常量写在通用 `Field` | `Field.java:246/252/290`（`CELL_*`、`CELL_PENT`、`HIVE_TIP_BALLS`） | 随插件搬走，`Field` 只留通用基元 |
-| **P1** | 前后端各存一份几何数值 | `Field.CELL_PENT` 与前端 `field.js` | 只留一份在后端，经 `fieldMessage` 下发 |
-| **P2** | 场地几何手工转录、硬编码在 Java | `biobuzz()` 注释：转录自社区文档 | 考虑改为资源文件（数据驱动），降低每季录入成本 |
-| — | 场地贴图按赛季各一份 | `FieldImages`（DECODE/BIOBUZZ png） | 合理，保持现状即可 |
+| **P0** | CELL 五边形碰撞写在通用物理类 | **已剥离** | `BiobuzzRules.collide` / `resolveCell`；`Projectile.step` 只调 `field.rules().collide(this, field)` |
+| **P0** | HIVE 倾覆写在通用世界类 | **已剥离** | `BiobuzzRules.afterStep` / `capture` / `tip` / `release`；`World` 只调 `field.rules().afterStep(p, this)`，并提供 `markFieldChanged()` |
+| **P1** | 赛季常量写在通用 `Field` | **已剥离** | `BiobuzzRules.CELL_*` / `HIVE_*` / `cellSlotPosition` / `cellGeometry`；`Field` 只留通用基元 |
+| **P1** | 前后端各存一份几何数值 | **基本完成** | 后端单源 `BiobuzzRules.cellGeometry()` 经 `fieldMessage` 下发；前端 `field.js` 仍保留 fallback 常量（仅在消息缺失时用） |
+| **P2** | 场地几何手工转录、硬编码在 Java | 未做 | `Field.biobuzz()` 数据仍是 Java 字面量 |
+| **P1** | 注册表与赛季身份 | 未做 | `Field.byName` 仍是 `switch`；`SeasonRules` 还没有 `name()`/工厂 |
+| **P1** | 计分与工具链仍认赛季 | 未做 | `Simulator.java` 的 `20 * tips`、`obeliskTag`/`sim.obelisk`、`contains("biobuzz")` 启发式 |
+| — | 场地贴图按赛季各一份 | 保持 | `FieldImages`（DECODE/BIOBUZZ png）合理 |
 
 ## 务实建议
 
-**现在不必为明年做过度设计**——明年的场地和玩法都未知，提前抽象很容易抽象错。但有**一件低成本高回报的事**值得现在做：
+第一批已经按「只动位置、不动契约」完成，验收标准是现有测试断言不变：
 
-> 把已泄漏到 `Projectile` / `World` 里的 BIOBUZZ 代码**先剥出去**（纯挪位置，不改功能，风险低）。
+- 引擎只新增一个很小的 `SeasonRules` 接口；BIOBUZZ 的全部几何/规则集中在 `BiobuzzRules`。
+- `capturedIn`、`State.CAPTURED`、`tipEvents/tipCounts` 这些 **UI 契约字段没有动**，所以 `Simulator.ballsMessage()` 与前端无需改。
+- 第二笔再动契约：`Map` 注册表、公共 `SeasonGame`、`Simulator` 计分/obelisk、前端文案与 fallback 清理。它们需要单独联调，不应和这次混在一起。
 
-好处是：明年新赛季的改动会集中在一个新文件，而不是面对一个已被赛季代码污染过的 `Projectile`。这比"等明年一起大改"省事得多。
+## 源码证据（第一批之后）
 
-## 源码证据
-
-- 场地注册表与切换：`Field.java:170-177`（`byName(name)`）、`:208`（`decode`）、`:230`（`empty`）、`:293`（`biobuzz`）；`Simulator.java:157`（按配置名自动选）；`World.java:20`（默认 `decode()`）
-- 赛季常量泄漏：`Field.java:246`（`CELL_DEPTH_IN`/`CELL_BOTTOM_IN`）、`:252-253`（`CELL_PENT`）、`:260-286`（`pentagonSd`/`pentagonClosest`）、`:190-195`（`cellSlotPosition`）、`:290`（`HIVE_TIP_BALLS`）
-- 物理层越界：`Projectile.java:190-249`（CELL 碰撞/捕获/随动）、`:252-258`（`rideInCell`）
-- 世界层越界：`World.java:180-182`（`onGoalReached` 分赛季）、`:216-225`（`checkCellCapture`/`capturedIn`）、`:232-245`（`tip`）
-- 通用能力已具备：`MotorState.java:183-198`（`stepLoad` 含惯性/摩擦/重力）、`:200-203`（`applyLimits` 行程限位）；`ServoState.java:40-57`（位置/CR 模式）
-- 前端：`main.js:118/128`（`field.rebuild` 通用重建）、`:317-349`（`renderBioBuzz` 按 options 自动生成 UI）
+- 引擎接口：`physics/SeasonRules.java`（`collide` / `ride` / `afterStep` / `isScoringGoal` / `resetFieldState` / `extraFieldData`）
+- 赛季实现：`physics/BiobuzzRules.java`（五边形、CELL 碰撞、捕获/堆放、tip/release、`cellGeometry`、场地构建）
+- 通用引擎调用点：`Projectile.step`（`field.rules().ride/collide`）、`World.stepProjectiles`（`afterStep`）、`World.clearProjectiles`（`resetFieldState`）、`Simulator.fieldMessage`（`extraFieldData`）
+- 注册表与切换（未变）：`Field.byName(name)`、`Field.decode()/empty()/biobuzz()`；`Simulator.java` 按配置名选场地；`World` 默认 `Field.decode()`
+- 通用能力已具备：`MotorState.stepLoad/applyLimits`；`ServoState` 位置/CR 模式
+- 前端：`main.js` 的 `field.rebuild` 通用重建、`renderBioBuzz` 按 options 自动生成 UI；`field.js` 优先使用下发的 `cellGeometry`
 
 ---
 
 ## 附录 A：赛季插件接口签名（`SeasonGame`）
 
 下面把图 3 的"统一接口 ①几何 ②交互 ③计分 ④选项"落成可落地的 Java 签名。每个赛季一个实现，挂在它自己构造的 `Field` 上；通用引擎只通过接口调用，不再出现赛季名 / 几何。
+
+> **注意**：这是完整目标形态，尚未落地。第一批实际落地的是更小的 `SeasonRules`（`collide` / `ride` / `afterStep` / `isScoringGoal` / `resetFieldState` / `extraFieldData`），实现是 `BiobuzzRules`；它已经覆盖了本附录的 ②交互与部分 ③计分，但没有注册表、`buildField()` 和 `tipPoints()`。
 
 ```java
 package ftcsim.physics;
@@ -253,13 +259,14 @@ enum GoalOutcome { SCORE, IGNORE }
 // CAPTURE 用带簇名的重载 / 记录：record Capture(String clusterName) {}
 ```
 
-**调用时机（与现状一一对应，确保纯挪位置）**：
+**调用时机（第一批已按此落地；`SeasonGame` 是后续扩展）**：
 
-- `Projectile.step(dt,f)` → 末尾把 `hitCells(f)` 换成 `f.game().collide(p,f)`。
-- `World.stepProjectiles`：把 `onGoalReached` 的 if 换成 `f.game().resolveGoalReached(...)`；把 `checkCellCapture/capture` 换成 `tryCapture/onCaptured`；把 `tip/release/capturedIn` 换成 `shouldTip/tip/releaseCaptured`。
-- `World.clearProjectiles`：把 `field.resetHives()` 换成 `field.game().resetFieldState(field)`。
-- `Simulator.drainTips`：`points` 改为 `field.game().tipPoints() * tips`。
-- `Simulator` 的 `field = Field.byName(config.field)` 不变（注册表见附录 B）。
+- `Projectile.step(dt, f)` → 捕获态先 `field.rules().ride(p, f)`，普通碰撞调用 `field.rules().collide(p, f)`。
+- `World.stepProjectiles` → 进球裁决 `field.rules().isScoringGoal(name, f)`，捕获 `field.rules().afterStep(p, this)`。
+- `World.clearProjectiles` → `field.rules().resetFieldState(field)`。
+- `BiobuzzRules.tip` → `World.markFieldChanged()`。
+- `Simulator.fieldMessage` → `field.rules().extraFieldData()`（BIOBUZZ 下发 `cellGeometry`）。
+- **未做**：`Simulator.drainTips` 的 `20 * tips` 尚未改为 `tipPoints()`；`Field.byName(config.field)` 不变（注册表见附录 B）。
 
 ## 附录 B：数据模型与挂载方式
 
@@ -267,36 +274,40 @@ enum GoalOutcome { SCORE, IGNORE }
 
 **建议改造**：
 
-1. 引入 `interface SeasonGame` 与其实现 `DecodeGame` / `BiobuzzGame` / `EmptyGame`（落在 `ftcsim/physics/season/`）。
-2. `Field` 增加一个**包级** `SeasonGame game` 字段，由各工厂在构造末尾 `f.game = this;`；通用引擎（Projectile/World/Simulator）一律经 `field.game` 取赛季行为，不再直接触碰 `Field.CELL_*` / `HIVE_TIP_BALLS`。
-3. 注册表从 `switch` 改为 `Map<String, Supplier<Field>>`（或 `Map<String, SeasonGame>`），`byName` 查表；新增赛季 = 注册一行，不改 `Projectile/World`。
-4. 赛季几何常量（`CELL_PENT` / `CELL_DEPTH_IN` / `HIVE_PIVOT_Z` 等）随实现类搬走（原 `Field.java:236-253,290`），`pentagonSd/pentagonClosest/cellSlotPosition` 也迁到 `BiobuzzGame`（或留在 Field 但标记为 CELL 专属、仅由插件调用——更干净是随插件搬）。
-5. **前端去重**：`fieldMessage` 增加把 CELL 几何（`CELL_PENT`/深度/`HIVE_PIVOT_Z` 等）作为数据下发（例如在 `clusters` 上挂 `cellGeom`，或新增 `cellGeometry` 段），前端 `field.js:232-240` 的手抄常量删除，改为读下发值；前端仍用 `field.name` 仅做"是否绘制 HIVE 3D 机构"的总开关（因为那部分视觉模型确实按赛季），但**几何数值不再双份**。
+1. 引入 `interface SeasonGame` 与其实现 `DecodeGame` / `BiobuzzGame` / `EmptyGame`。**不要**把实现放进 `ftcsim.physics.season/` 同时用包级字段：Java 子包不是同包。第一批用同包 `BiobuzzRules` + public `Field.rules()` 绕开了这个问题；第二笔若要拆子包，必须把访问器改成 public。
+2. `Field` 持有 `SeasonRules rules`（已实现）并提供 public `rules()`；通用引擎（Projectile/World/Simulator）一律经它取赛季行为，不再直接触碰赛季常量。
+3. 注册表从 `switch` 改为 `Map<String, Supplier<Field>>`（或 `Map<String, SeasonGame>`），`byName` 查表；新增赛季 = 注册一行，不改 `Projectile/World`。**未做**。
+4. 赛季几何常量已随 `BiobuzzRules` 搬走，`pentagonSd/pentagonClosest/cellSlotPosition/cellGeometry` 也在那里；`Field` 不再有 `CELL_*`/`HIVE_*`。
+5. **前端去重**：后端已单源下发 `cellGeometry`，前端 `field.js` 优先读它；剩余的是 fallback 常量和 `renderBioBuzz`/`hive.tip`/`+20 pts` 文案，属于第二笔。
 
 ## 附录 C：迁移步骤（按风险 / 依赖排序，纯挪位置优先）
 
-| 步 | 目标 | 改动文件 | 纯挪 vs 改功能 | 风险 / 依赖 |
-|---|---|---|---|---|
-| **0. 先固化测试** | 确保 `HiveTipTest` / `BioBuzzFieldTest` 当前绿，作为回归基线 | （不改） | — | 低，前置 |
-| **1. 抽 `SeasonGame` 接口 + 三实现空壳** | 接口落 `ftcsim/physics/season/`；实现先委托回现有静态方法 | 新增接口；`Field` 加 `game` 字段；`byName` 改查 `Map`，但工厂体仍调现有 `decode()/biobuzz()` | 纯挪注册表结构 | 低；不改任何物理行为 |
-| **2. 搬赛季常量与几何辅助** | `CELL_PENT`/`CELL_DEPTH_IN`/`HIVE_PIVOT_Z`/`pentagonSd`/`pentagonClosest`/`cellSlotPosition` 从 `Field` 移到 `BiobuzzGame` | `Field.java`、`BiobuzzGame.java`、调用方改 `field.game` | 纯挪位置 | 中；靠第 0 步测试保底 |
-| **3. 搬 CELL 碰撞 / 捕获 / 随动** | `hitCells/resolveCell/rideInCell` → `BiobuzzGame`；`Projectile` 去 `capturedIn/slot` 之外保留通用物理 | `Projectile.java`、`BiobuzzGame.java` | 纯挪；`Projectile.step` 仅把 `hitCells(f)` 换 `f.game().collide(p,f)` | 中；对齐 `ProjectileTest`（通用）与 `HiveTipTest` |
-| **4. 搬 HIVE 倾覆 + 计分** | `World.tip/release/capturedIn/onGoalReached/checkCellCapture/enteringMouth/capture` → `BiobuzzGame`；`Field.resetHives` → `resetFieldState`；`Simulator` 的 `20*tips` → `game.tipPoints()` | `World.java`、`Field.java`、`Simulator.java`、`BiobuzzGame.java` | 纯挪 + 阈值/分值参数化 | 中高；事件队列 `tipEvents/tipCounts` 可保留在 World（通用容器），只把"何时入队"委托插件 |
-| **5. 去前端双份几何** | `field.js:232-240` 常量改为读 `fieldMessage` 下发；`main.js` 的 `renderBioBuzz` 仍按 `field.name` 总开关但不再手抄数 | `field.js`、`main.js`、`Simulator.fieldMessage` | 改功能（数据传输方式），行为不变 | 中；需前端联调 |
-| **6. 收敛配置选赛季** | `Simulator.java:157` 的 `contains("biobuzz")` 启发式可保留或改为显式 `field` 映射；`World.java:20` 默认 `decode()` 仅占位，建议注释标清 | `Simulator.java` | 可选优化 | 低 |
-| **7. 落地 FieldImages 索引** | `FieldImages` 按 `SeasonGame.name()` 取 png（现状已按赛季分两份，保持） | （基本不动） | 保持现状 | 低 |
+| 步 | 目标 | 状态（2026-10-25） |
+|---|---|---|
+| **0. 先固化测试** | `HiveTipTest` / `BioBuzzFieldTest` / `ProjectileTest` 全绿 | **已满足**：51/51 通过 |
+| **1. 抽规则接口 + 实现** | 同包 `SeasonRules` + `BiobuzzRules`，`Field.rules()` | **已完成**（第一批） |
+| **2. 搬赛季常量与几何辅助** | `CELL_*`/`HIVE_*`/`pentagon*`/`cellSlotPosition`/`cellGeometry` 从 `Field` 移到 `BiobuzzRules` | **已完成**；测试改为引用 `BiobuzzRules.CELL_DEPTH_IN/HIVE_TIP_BALLS` |
+| **3. 搬 CELL 碰撞 / 捕获 / 随动** | `collide/resolveCell`、`afterStep/capture`、`ride` | **已完成**；`Projectile`/`World` 只调 `field.rules()` |
+| **4. 搬 HIVE 倾覆与复位** | `tip/release`、`resetFieldState`、`markFieldChanged` | **已完成**；`Simulator` 的 `20*tips` 仍待办 |
+| **5. 去前端双份几何** | 后端 `cellGeometry` 下发 + 前端读取 | **后端已完成**；前端 fallback 与文案待办 |
+| **6. 收敛配置选赛季** | `contains("biobuzz")` 启发式、`Simulator` obelisk 特判 | 待办（第二笔） |
+| **7. 落地 FieldImages 索引** | 按 `SeasonRules`/赛季名取 png | 保持现状 |
 
-> 优先级对应文档的 P0（步 3、4）→ P1（步 2、5）→ P2（步 6、7）。**"现在先纯挪位置、不改功能"即步 1–4**，低风险可立即做。
+> 风险修正：原文把步 1–4 统称「低风险」。实际只有步 1–3 的“同包搬位置”接近低风险；步 4 涉及 `fieldChanged`、事件队列和复位，属于中风险。第一批通过 **不改变 `capturedIn`/`tipEvents`/`tipCounts` 这些 UI 契约** 把风险压了下来。
 
 ## 附录 D：补充的泄漏点（Simulator 与前端，原清单未点名）
 
-- `Simulator.java:596` `msg.put("points", 20 * tips)` —— HIVE 20 分硬编码进通信层（应改 `field.game().tipPoints() * tips`）。
-- `Simulator.java:157` `if (c.name.toLowerCase().contains("biobuzz")) c.field = "BIOBUZZ";` —— 按配置名猜赛季的启发式。
-- `Simulator` 对 `obelisk` / `redHive` 等赛季选项名的特判（`:264-273`）。
-- 前端：`web/3d/field.js:232-240` 手抄 `CELL_PENT`/`CELL_DEPTH`/`HIVE_PIVOT_Z` 等；`main.js:120,129` 每次重建都调 `renderBioBuzz(f)`（函数名即赛季名）；`:148` 监听 `hive.tip`、`:253-255` `onHiveTip` 硬编码 `+20 pts` 文案；`2d/app.js:159-160` `f.name==='DECODE'` 过滤 obelisk 标签。
+第一批**未处理**这些（它们属于第二笔，涉及协议/文案/联调）：
+
+- `Simulator.drainTips` 的 `msg.put("points", 20 * tips)` —— HIVE 20 分仍硬编码在通信层（应改 `field.rules().tipPoints() * tips`；`SeasonRules` 尚未暴露 `tipPoints()`）。
+- `Simulator` 的 `if (c.name.toLowerCase().contains("biobuzz")) c.field = "BIOBUZZ";` —— 按配置名猜赛季的启发式。
+- `Simulator` 对 `obelisk` / `redHive` 等赛季选项名的特判，以及 `Limelight3A`/`AprilTagProcessorImpl` 对标签 21–23 的过滤。
+- 前端：`3d/main.js` 的 `renderBioBuzz`（函数名即赛季名）、`hive.tip` 监听、`onHiveTip` 硬编码 `+20 pts` 文案；`2d/app.js` 的 `f.name === 'DECODE'` obelisk 过滤。
+- `3d/field.js` 仍保留 CELL/HIVE 的 fallback 常量（`:239` 起）；后端已下发 `cellGeometry`，fallback 只在消息缺失时生效。
 
 ## 附录 E：测试锚定（迁移"不得破坏"的回归基线）
 
-- `HiveTipTest.java`：捕获 / 倾覆 / 复位 / DECODE 仍进球（`:48-150`）。
-- `BioBuzzFieldTest.java`：4 个 CELL 簇、标签 30-45、倾角 ±30°、倾覆交换、byName 选择（`:14-79`）。
+- `HiveTipTest.java`：捕获 / 倾覆 / 复位 / DECODE 仍进球；常量引用改为 `BiobuzzRules.CELL_DEPTH_IN` / `HIVE_TIP_BALLS`，断言未改。
+- `BioBuzzFieldTest.java`：4 个 CELL 簇、标签 30-45、倾角 ±30°、倾覆交换、byName 选择。
 - `ProjectileTest.java`：通用物理，用 `Field.decode()`，**不含赛季**（纯通用，可保留）。
+- 第一批验收：`./gradlew test` 51/51、`node tools/check-web.mjs` 11/11、`node tools/docs-check.mjs` 无 drift；另用本机 Playwright（Chromium + SwiftShader）在真实浏览器验证 BIOBUZZ field 消息（含 `cellGeometry`）、2 组 HIVE / 4 个 CELL / 16 个 tag 渲染、`redHive` 切换与 `sim.clearBalls` 复位，无 page/console error。

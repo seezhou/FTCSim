@@ -21,7 +21,7 @@ public class HiveTipTest {
     private static Projectile fireInto(World w, String cellName, double speed) {
         Field.Cluster cl = w.field.cluster(cellName);
         double[] f = cl.facing();
-        double d = Field.CELL_DEPTH_IN / 2 + 6;
+        double d = BiobuzzRules.CELL_DEPTH_IN / 2 + 6;
         return w.spawnProjectile(cl.x + f[0] * d, cl.y + f[1] * d, cl.z + f[2] * d,
                                  -f[0] * speed, -f[1] * speed, -f[2] * speed, 1.4);
     }
@@ -31,7 +31,7 @@ public class HiveTipTest {
         Field.Cluster cl = w.field.cluster(cellName);
         double[][] ax = cl.axes();
         double[] dep = ax[2];                       // mouth -> back
-        double d = Field.CELL_DEPTH_IN / 2 + 6;
+        double d = BiobuzzRules.CELL_DEPTH_IN / 2 + 6;
         return w.spawnProjectile(cl.x + dep[0] * d, cl.y + dep[1] * d, cl.z + dep[2] * d,
                                  -dep[0] * speed, -dep[1] * speed, -dep[2] * speed, 1.4);
     }
@@ -59,7 +59,7 @@ public class HiveTipTest {
 
     @Test public void enoughCapturedBallsTipTheHiveAndSpillThem() {
         World w = biobuzzWorld();
-        for (int i = 0; i < Field.HIVE_TIP_BALLS; i++) {
+        for (int i = 0; i < BiobuzzRules.HIVE_TIP_BALLS; i++) {
             Projectile p = fireInto(w, "RED AUDIENCE", 100);
             run(w, p, 500);
         }
@@ -83,7 +83,7 @@ public class HiveTipTest {
         World w = biobuzzWorld();
         Field.Cluster cl = w.field.cluster("RED AUDIENCE");
         double[][] ax = cl.axes();
-        double d = Field.CELL_DEPTH_IN / 2 + 6;
+        double d = BiobuzzRules.CELL_DEPTH_IN / 2 + 6;
         // aimed at the bottom lip of the mouth: 8 in below the centre, well outside the
         // axis-aligned hit volume that used to decide a capture
         Projectile p = w.spawnProjectile(
@@ -98,7 +98,7 @@ public class HiveTipTest {
         Projectile p = fireAtBack(w, "RED AUDIENCE", 100);
         for (int i = 0; i < 400; i++) w.step();
         assertNull(p.capturedIn, "the back of the box is not a way in");
-        double halfD = Field.CELL_DEPTH_IN / 2;
+        double halfD = BiobuzzRules.CELL_DEPTH_IN / 2;
         assertTrue(depth(w, p, "RED AUDIENCE") > halfD,
             "the ball stayed behind the back face instead of passing through");
         assertTrue(w.capturedCount() == 0);
@@ -136,7 +136,7 @@ public class HiveTipTest {
 
     @Test public void clearingTheFieldResetsTheHives() {
         World w = biobuzzWorld();
-        for (int i = 0; i < Field.HIVE_TIP_BALLS; i++) {
+        for (int i = 0; i < BiobuzzRules.HIVE_TIP_BALLS; i++) {
             Projectile p = fireInto(w, "RED AUDIENCE", 100);
             run(w, p, 500);
         }

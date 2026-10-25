@@ -1,9 +1,9 @@
 ---
 summary: 射球/发射器/HIVE·CELL 的实现、配置 schema 与 9 条踩坑
 refs:
-  - path: sim/src/main/java/ftcsim/physics/Field.java
+  - path: sim/src/main/java/ftcsim/physics/BiobuzzRules.java
     anchor: "public static final int HIVE_TIP_BALLS"
-    hash: 6fa835dbf536
+    hash: 21586736b39a
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
     hash: 71c560d63844
@@ -33,7 +33,8 @@ refs:
 
 修改：
 - `physics/World.java` — `projectiles` 容器、`spawnProjectile()`、`clearProjectiles()`、`collectBalls()`（碾球捡拾）；球挂在 `step()` 里，继承暂停/单步/时间缩放。
-- `physics/Field.java` — DECODE 球门命中区 + BIOBUZZ CELL（五边形棱柱）捕获判定、HIVE tip 逻辑。
+- `physics/Field.java` — 通用场地基元 + 赛季注册（`byName`）；`physics/SeasonRules.java` 是引擎调用赛季行为的接口。
+- `physics/BiobuzzRules.java` — BIOBUZZ 专属：CELL（五边形棱柱）几何与碰撞、捕获/堆放、HIVE tip 与复位；`Projectile`/`World` 只经 `field.rules()` 调用。
 - `Simulator.java` — state 增 `balls` / `launcher` / `hive.tip`；`sim.launch` / `sim.reload` / `sim.clearBalls` / `sim.launcherPitch` / `sim.launcherPitch` 消息。
 - `web/3d/robot.js` — `setAmmo()` / `ammoLayout()`：车内居中球簇渲染。
 - `web/3d/main.js` / `index.html` / `style.css` — 发射器角度滑块、隐藏原 `ammoPill` 文本。
@@ -82,12 +83,12 @@ refs:
 
 - 球打中 CELL **装进箱里**（不计分）；装到阈值 **`HIVE_TIP_BALLS = 4` 球**后 HIVE tip 到另一侧。
 
-> 校对注（2026-10-24）：原文写的是 3 球，与代码不符。`Field.java:290` 实际为
+> 校对注（2026-10-24）：原文写的是 3 球，与代码不符。`BiobuzzRules` 中实际为
 > `public static final int HIVE_TIP_BALLS = 4`，注释说明手册只写"enough POLLEN or NECTAR"未给数字、
 > sim 取 4。已更正为 4。
 - tip 时箱内球从口部倒出（口朝下外 30°，给 18 in/s 初速继续自由飞行，落地为 litter）；比赛重置（INIT / `robot.restart` / `sim.clearBalls`）把两个 HIVE 复位到开局态并清空 tip 计数。
 - tip **+20 分**（table 10-2），通过 `hive.tip {alliance, tips, points}` 广播；球的 `ball.score` 只保留给 DECODE goal。
-- tip 必须回传场地：`World.tip()` 置 `fieldChanged`，广播循环调 `broadcastField()`，前端收到后 `rebuild` + `aimHives` 触发 60° 摆动动画。
+- tip 必须回传场地：`BiobuzzRules.tip()` 调 `World.markFieldChanged()`，广播循环调 `broadcastField()`，前端收到后 `rebuild` + `aimHives` 触发 60° 摆动动画。
 
 ## 6. 前端
 
@@ -109,7 +110,7 @@ refs:
 1. **伺服是渐变的**（`secondsFullRange`）：相邻轮询位移检测会漏掉慢伺服 → 必须用**电平跨越 + 迟滞**（`position` 触发，回落 `position−deltaPosition` 复位）。
 2. **`minRpm` 是"推球后等待的转速"**：只在跨电平瞬间检查会让低转速那一发被永久吞掉；必须实现"待发射"等转速（团队代码按键后 0.5 s 推球，飞轮满速要 ~2 s）。
 3. **捕获方向/法线**：箱子内部在 `-facing` 侧，判定时先确认"法线朝外、内部在反向"；单测要按正确入射方向写。
-4. **CELL 不是碰撞体**（原 `Field.Obstacle` 只有脚杆/FLOWER）：`Projectile.hitCells()` 用五边形棱柱做碰撞，五面封闭、**口部敞开**；球心在箱内时从最近面向外推出，唯独"从口部往里飞"不算碰撞。AABB 只用于 DECODE 球门。
+4. **CELL 不是碰撞体**（原 `Field.Obstacle` 只有脚杆/FLOWER）：`BiobuzzRules.collide()`/`resolveCell()` 用五边形棱柱做碰撞，五面封闭、**口部敞开**；球心在箱内时从最近面向外推出，唯独"从口部往里飞"不算碰撞。AABB 只用于 DECODE 球门。
 5. **AprilTag 朝向**：tag 挂进 CELL 组后用**局部**绕 X 轴 +90°（与 sticker 同 pose），勿再叠世界基；局部坐标取标量分量 `d.dot(across)`，别把世界向量当局部轴。
 6. **坐标系符号**：`Field` 的 depth 轴 = −facing（向箱内），前端 CELL 局部 z = +facing（向口部），两边符号相反。
 7. **前端静态资源缓存**：`WebServer` 回 `Cache-Control: no-cache`，浏览器不缓存；但默认从 **classpath** 读文件（编译产物），改源码后需**重启后端**才生效。想前端改动即时刷新，启动加 `--web <源码 web 目录>`（如 `gradlew run --args="--web D:/FTCSim/sim/src/main/resources/web"`）走实时目录。前端 import 里已无 `?v=` 缓存串。
@@ -118,6 +119,7 @@ refs:
 
 ## 9. 验证
 
-- 单元测试全绿（约 50 项，`./gradlew test`）：含弹道、反弹、进门、捕获不得分、4 球 tip 并倒球、朝下 CELL 不捕获、DECODE 照旧、清场复位、碾球捡拾（`drivingOverABallPicksItUp` / `aBallAwayFromTheRobotIsNotPickedUp`）。
+- 单元测试全绿（51 项，`./gradlew test`）：含弹道、反弹、进门、捕获不得分、4 球 tip 并倒球、朝下 CELL 不捕获、DECODE 照旧、清场复位、碾球捡拾（`drivingOverABallPicksItUp` / `aBallAwayFromTheRobotIsNotPickedUp`）。
 - 端到端（真实 `BioBuzzTele`，按住 gamepad1.a）：自动推断触发射出，弹量递减；滑块改仰角实时生效。
-- 本机无 node，`tools/*.mjs`（Playwright）跑不了；用 PowerShell WebSocket 脚本直连验证。
+- 静态检查：`node tools/check-web.mjs`（11 个前端模块语法）、`node tools/docs-check.mjs`（代码引用的 anchor/hash）。
+- 浏览器冒烟（2026-10-25）：本机已有 Node 24，Playwright 浏览器在 `%LOCALAPPDATA%\ms-playwright`；用其自带 Chromium（`--use-gl=angle --use-angle=swiftshader`）无头打开 3D 页，验证 BIOBUZZ field 消息、2 组 HIVE / 4 个 CELL / 16 个 tag、`redHive` 切换与 `sim.clearBalls` 复位、无 page/console error。临时脚本在 `build/ui-smoke.cjs`（已被 git 忽略）。

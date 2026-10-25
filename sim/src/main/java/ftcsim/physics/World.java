@@ -40,6 +40,9 @@ public final class World {
         fieldChanged = false;
         return true;
     }
+
+    /** Marks the field as changed after season rules moved its elements. */
+    public void markFieldChanged() { fieldChanged = true; }
     /** Ceiling on balls kept at once, so a long match cannot grow the list without bound. */
     public static final int MAX_PROJECTILES = 24;
     private final List<DoubleConsumer> stepListeners = new CopyOnWriteArrayList<>();
@@ -130,7 +133,7 @@ public final class World {
         tipEvents.clear();
         tipCounts.clear();
         pickupEvents.clear();
-        field.resetHives();
+        field.rules().resetFieldState(field);
         fieldChanged = true;
     }
 
@@ -147,7 +150,7 @@ public final class World {
             String before = p.scoredGoal;
             p.step(dt, field);
             if (before == null && p.scoredGoal != null) onGoalReached(p);
-            if (p.capturedIn == null) checkCellCapture(p);
+            if (p.capturedIn == null) field.rules().afterStep(p, this);
         }
         collectBalls();
     }
@@ -177,90 +180,10 @@ public final class World {
         return Math.abs(ahead) <= chassis.length / 2 + r && Math.abs(left) <= chassis.width / 2 + r;
     }
 
-    /** A DECODE goal scores; a BIOBUZZ CELL is a box, not a hit box — capture handles it. */
+    /** Season rules decide whether the volume is a goal or a container (a BIOBUZZ CELL). */
     private void onGoalReached(Projectile p) {
-        if (field.cluster(p.scoredGoal) != null) { p.scoredGoal = null; return; }
+        if (!field.rules().isScoringGoal(p.scoredGoal, field)) { p.scoredGoal = null; return; }
         scoreEvents.add(p.scoredGoal);
-    }
-
-    /** A ball that has gone into an upward CELL's box is captured into it. */
-    private void checkCellCapture(Projectile p) {
-        for (Field.Cluster cl : field.clusters) {
-            if (cl.pitchDeg <= 0) continue;          // only the upward CELL collects balls
-            if (!enteringMouth(p, cl)) continue;
-            p.scoredGoal = null;
-            capture(p, cl);
-            return;
-        }
-    }
-
-    /**
-     * True when the ball is genuinely in a CELL: flying against the mouth normal (the interior
-     * lies behind the mouth) with its centre inside the box proper. The mouth's hit volume is only
-     * an axis-aligned box around the mouth plane, so the CELL's own geometry decides — a ball that
-     * merely grazes the rim bounces instead of being captured.
-     */
-    private static boolean enteringMouth(Projectile p, Field.Cluster cell) {
-        double dx = p.x - cell.x, dy = p.y - cell.y, dz = p.z - cell.z;
-        if (dx * dx + dy * dy + dz * dz > 400) return false;   // 20 in sphere — the box fits in ~15
-        double[] f = cell.facing();
-        if (p.vx * f[0] + p.vy * f[1] + p.vz * f[2] > 0) return false;   // going back out
-        double[] l = cell.local(p.x, p.y, p.z);
-        double halfD = Field.CELL_DEPTH_IN / 2;
-        return Field.pentagonSd(l[0], l[1]) <= 0 && l[2] >= -halfD && l[2] <= halfD;
-    }
-
-    private void capture(Projectile p, Field.Cluster cell) {
-        p.capturedIn = cell.name;
-        p.slot = capturedIn(cell.name);
-        p.state = Projectile.State.CAPTURED;
-        p.scoredGoal = null;
-        if (capturedIn(cell.name) >= Field.HIVE_TIP_BALLS) tip(cell.name);
-    }
-
-    private int capturedIn(String cellName) {
-        int n = 0;
-        for (Projectile q : projectiles) if (cellName.equals(q.capturedIn)) n++;
-        return n;
-    }
-
-    /**
-     * The upward CELL is heavy enough: the HIVE falls through to its other stable state (a 60°
-     * turn around the pivot), spilling the balls that were in it. Worth 20 points, per manual
-     * table 10-2.
-     */
-    private void tip(String cellName) {
-        String alliance = cellName.startsWith("RED") ? "red" : "blue";
-        String option = alliance + "Hive";
-        String up = field.option(option);
-        field.setOption(option, "audience".equals(up) ? "scoring" : "audience");
-        Field.Cluster nowDown = field.cluster(cellName);   // same CELL, now facing the floor
-        for (Projectile p : projectiles) {
-            if (!cellName.equals(p.capturedIn)) continue;
-            release(p, nowDown);
-        }
-        String name = alliance.toUpperCase();
-        tipEvents.add(name);
-        tipCounts.merge(name, 1, Integer::sum);
-        fieldChanged = true;   // the CELLs moved: the UI has to rebuild the field to see it
-    }
-
-    /** A tipped-out ball pours from the mouth of the now-downward CELL and tumbles to the floor. */
-    private static void release(Projectile p, Field.Cluster cell) {
-        p.capturedIn = null;
-        p.scoredGoal = null;
-        p.state = Projectile.State.FLIGHT;
-        double[] out = cell.facing();                      // points outward and 30° down
-        double yaw = Math.toRadians(cell.yawDeg);
-        double[] across = { -Math.sin(yaw), Math.cos(yaw), 0 };
-        double nudge = ((p.id % 5) - 2) * 2.0;             // a little spread so they do not overlap
-        double dist = Field.CELL_DEPTH_IN / 2 + p.radiusIn + 0.5;
-        p.x = cell.x + out[0] * dist + across[0] * nudge;
-        p.y = cell.y + out[1] * dist + across[1] * nudge;
-        p.z = cell.z + out[2] * dist;
-        p.vx = out[0] * 18 + across[0] * nudge * 3;
-        p.vy = out[1] * 18 + across[1] * nudge * 3;
-        p.vz = out[2] * 18;
     }
 
     public synchronized void start() {

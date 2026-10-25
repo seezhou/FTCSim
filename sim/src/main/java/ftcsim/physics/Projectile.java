@@ -73,7 +73,7 @@ public final class Projectile {
     public void step(double dt, Field field) {
         age += dt;
         if (state == State.REST) return;
-        if (capturedIn != null) { rideInCell(field); return; }
+        if (capturedIn != null && field.rules().ride(this, field)) return;
 
         vz -= GRAVITY * dt;
         applyDrag(dt);
@@ -84,7 +84,7 @@ public final class Projectile {
         // even though the collision below bounces it straight back out.
         checkGoal(field);
         hitObstacles(field);
-        hitCells(field);
+        field.rules().collide(this, field);
         hitFloor();
         if (state == State.ROLLING) roll(dt);
     }
@@ -187,73 +187,4 @@ public final class Projectile {
         }
     }
 
-    /**
-     * The BIOBUZZ CELLS: boxes, not hit boxes. A ball bounces off their five closed faces and only
-     * ever gets inside through the mouth — the one open face, the big pentagon out at the end of
-     * the arm. A ball already flying in through the mouth is left alone; it is being captured.
-     */
-    private void hitCells(Field field) {
-        for (Field.Cluster cl : field.clusters) {
-            double dx = x - cl.x, dy = y - cl.y, dz = z - cl.z;
-            if (dx * dx + dy * dy + dz * dz > 400) continue;   // 20 in sphere — the box fits in ~15
-            resolveCell(cl);
-        }
-    }
-
-    private void resolveCell(Field.Cluster cl) {
-        double halfD = Field.CELL_DEPTH_IN / 2;
-        double[] l = cl.local(x, y, z);          // (across, up, depth); the mouth is at -halfD
-        double u = l[0], w = l[1], dp = l[2];
-        boolean inSection = Field.pentagonSd(u, w) <= 0;
-        if (inSection && dp < -halfD) return;    // in front of the open mouth: nothing to hit
-
-        double nu = 0, nw = 0, nd = 0, push;     // outward direction (box local) and how far to move
-        if (inSection && dp <= halfD) {
-            // the centre is inside the box: leave through whichever face is nearest
-            double best = dp + halfD, bu = 0, bw = 0, bd = -1;   // out through the mouth
-            if (halfD - dp < best) { best = halfD - dp; bu = 0; bw = 0; bd = 1; }  // or the back
-            for (int i = 0; i < Field.CELL_PENT.length; i++) {
-                double[] a = Field.CELL_PENT[i], b = Field.CELL_PENT[(i + 1) % Field.CELL_PENT.length];
-                double ex = b[0] - a[0], ey = b[1] - a[1], len = Math.hypot(ex, ey);
-                double nx = ey / len, ny = -ex / len;
-                double d = -((u - a[0]) * nx + (w - a[1]) * ny);  // inside -> the distance to that wall
-                if (d < best) { best = d; bu = nx; bw = ny; bd = 0; }
-            }
-            // flying deeper in through the mouth is capture, not a bounce
-            double[][] ax = cl.axes();
-            if (bd < 0 && vx * ax[2][0] + vy * ax[2][1] + vz * ax[2][2] > 0) return;
-            nu = bu; nw = bw; nd = bd; push = best + radiusIn;
-        } else {
-            double[] q = inSection ? new double[] { u, w } : Field.pentagonClosest(u, w);
-            double du = u - q[0], dw = w - q[1];
-            double dd = dp - Math.max(-halfD, Math.min(halfD, dp));
-            double dist = Math.sqrt(du * du + dw * dw + dd * dd);
-            if (dist >= radiusIn) return;
-            if (dist > 1e-9) { nu = du / dist; nw = dw / dist; nd = dd / dist; }
-            else nd = dp > 0 ? 1 : -1;
-            push = radiusIn - dist;
-        }
-
-        double[][] ax = cl.axes();
-        double[] n = {
-            ax[0][0] * nu + ax[1][0] * nw + ax[2][0] * nd,
-            ax[0][1] * nu + ax[1][1] * nw + ax[2][1] * nd,
-            ax[0][2] * nu + ax[1][2] * nw + ax[2][2] * nd };
-        x += n[0] * push; y += n[1] * push; z += n[2] * push;
-        double vn = vx * n[0] + vy * n[1] + vz * n[2];
-        if (vn < 0) {
-            vx -= (1 + RESTITUTION) * vn * n[0];
-            vy -= (1 + RESTITUTION) * vn * n[1];
-            vz -= (1 + RESTITUTION) * vn * n[2];
-        }
-    }
-
-    /** A captured ball rides with its CELL, parked on the stack inside the box. */
-    private void rideInCell(Field field) {
-        Field.Cluster cl = field.cluster(capturedIn);
-        if (cl == null) { capturedIn = null; state = State.FLIGHT; return; }  // field changed under us
-        double[] p = field.cellSlotPosition(cl, slot, radiusIn);
-        x = p[0]; y = p[1]; z = p[2];
-        vx = vy = vz = 0;
-    }
 }

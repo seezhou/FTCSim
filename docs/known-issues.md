@@ -11,13 +11,14 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 ## 待修（代码）
 
-### 5. 赛季代码泄漏进了通用类
+### 5. 赛季代码泄漏进了通用类（第一批已剥离，剩余第二笔）
 
-- **位置**：`Projectile.java:190-249`（BIOBUZZ CELL 五边形碰撞）、`World.java:180-182`（`onGoalReached` 用 if 区分赛季）、`:232-245`（HIVE 倾覆）、`Field.java:246/252/290`（赛季常量）
-- **问题**：通用物理/世界类里出现了赛季专属的逻辑与常量
-- **影响**：换赛季的改动会散落在多个通用类里，而不是集中在一处
-- **建议**：把赛季专属交互抽成插件接口。完整设计与优先级见 `seasons/01-season-abstraction.md`
-- **优先级**：中。建议在明年赛季确定前做一次剥离（纯挪位置、不改功能、低风险）
+- **已做（2026-10-25）**：`Projectile`/`World`/`Field` 里的 BIOBUZZ 几何与规则已搬到同包 `BiobuzzRules`，引擎经 `SeasonRules`（`field.rules()`）调用；`Projectile.hitCells/resolveCell/rideInCell`、`World.tip/capture/enteringMouth/release`、`Field.CELL_*`/`HIVE_*` 已移除。`capturedIn`/`tipEvents`/`tipCounts` 等 UI 契约未变，测试 51/51 通过；并已用本机 Playwright（Chromium + SwiftShader）在真实浏览器验证 BIOBUZZ 场地消息、3D 场景、HIVE 切换与清场复位，无 page/console error。
+- **剩余位置**：`Simulator` 的 `20 * tips`、`obeliskTag`/`sim.obelisk`、`contains("biobuzz")` 启发式；`Field.byName` 的 `switch` 注册表；前端 `renderBioBuzz`/`hive.tip`/`+20 pts` 文案与 `field.js` fallback 常量。
+- **问题**：通用通信层/配置层与前端仍直接认识赛季名或硬编码分值
+- **影响**：换赛季仍需改 `Simulator` 和前端，而不只是新增一个规则实现
+- **建议**：第二笔再做注册表与 `tipPoints()`，并单独联调前端；设计与状态见 `seasons/01-season-abstraction.md`
+- **优先级**：中。剩余部分涉及协议/文案，建议在明年赛季确定前单独做
 
 ---
 
@@ -31,12 +32,12 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 | 问题 | 位置 | 处理 |
 |---|---|---|
-| `HIVE_TIP_BALLS` 记 3，代码是 4 | `docs/launcher/01-ball-launcher.md`（原 `.codebuddy/notes/ball-launcher.md`） | 已改为 **4**，并加校对注说明依据（`Field.java:290`，注释说明手册未给数字、sim 取 4） |
+| `HIVE_TIP_BALLS` 记 3，代码是 4 | `docs/launcher/01-ball-launcher.md`（原 `.codebuddy/notes/ball-launcher.md`） | 已改为 **4**，并加校对注说明依据（`Field.java:290`，注释说明手册未给数字、sim 取 4；该常量现随第一批剥离位于 `BiobuzzRules.java:36`） |
 | 结论 44：输入源优先级表述 + KEYMAP 行号归属错误 | `notes/research/sim-physics-research-notes.md` 结论 44（`:612-618`）+ 源码证据列表（`:624`） | 修正两点：①虚拟手柄**不是轮询源**，仅在物理/键盘都未激活时保留 `p.s`（依据 `gamepad.js:231-245`）；②WASD/方向键/Q·E 在 `applyKeyboard()`（`:44-51`）做轴向合成，不在 `KEYMAP`（`:12-14`），并补全 `KeyR→start`/`Backspace→back`/`Tab→guide` |
 | 结论 9：tip-ball 数字同步核查 | `notes/research/sim-physics-research-notes.md` | 全文 `HIVE_TIP_BALLS` 零命中，研究笔记从未引用该数字，无需同步；3/4 球更正已在 `docs/launcher/01-ball-launcher.md` 完成 |
 | #1 场地尺寸 72 硬编码三处 | `web/3d/field.js`（buildShell/rebuild + 新增 getHalfField）、`web/3d/drag.js`（LIMIT 改读 getHalfField）、`Simulator.java:408` | 前端改用后端已下发的 `sizeIn` 取半场，保留 72 兜底；`drag.js` 拖拽边界同样走动态半场。原"后端发了前端没用"已修复 |
 | #2 rumbleIndicator 无效行 | `web/3d/gamepad.js:174` | 删除 `toggle('hidden', false)` 无效行；徽标显示实际由 CSS `.gamepad.rumbling` 控制（`gamepad.js:173` 的 `toggle('rumbling', on)` 才生效） |
-| #3 前端硬编码赛季常量与后端重复 | `web/3d/field.js`、`web/3d/webcam.js` + 后端 `Field.java`(`cellGeometry()`)、`CameraMount.java`(`toView()`)、`SimWebcamName.java`、`AprilTagProcessorImpl.java`(`MIN_FACING`)、`Simulator.java`(`fieldMessage` 补发 `cellGeometry`/`aprilTagMinFacing`) | 后端 `Field.cellGeometry()` 下发 CELL/HIVE 几何，`CameraMount.toView()` 下发结构化 mount，`AprilTagProcessorImpl.MIN_FACING` 下发阈值；前端 `field.js` 删除手抄常量改读 `cellGeom`（由 `fieldMessage.cellGeometry` 注入，保留兜底值），`webcam.js` 删除 `MOUNT_RE` 正则、`parseMount` 改读结构化对象、`minFacing` 由 `setMinFacing` 接收 |
+| #3 前端硬编码赛季常量与后端重复 | `web/3d/field.js`、`web/3d/webcam.js` + 后端 `Field.java`(`cellGeometry()`)、`CameraMount.java`(`toView()`)、`SimWebcamName.java`、`AprilTagProcessorImpl.java`(`MIN_FACING`)、`Simulator.java`(`fieldMessage` 补发 `cellGeometry`/`aprilTagMinFacing`) | 后端 `Field.cellGeometry()` 下发 CELL/HIVE 几何（第一批剥离后改由 `BiobuzzRules.extraFieldData()` 提供），`CameraMount.toView()` 下发结构化 mount，`AprilTagProcessorImpl.MIN_FACING` 下发阈值；前端 `field.js` 删除手抄常量改读 `cellGeom`（由 `fieldMessage.cellGeometry` 注入，保留兜底值），`webcam.js` 删除 `MOUNT_RE` 正则、`parseMount` 改读结构化对象、`minFacing` 由 `setMinFacing` 接收 |
 | #4 相机 mount 正则拆字符串 | `web/3d/webcam.js`(`MOUNT_RE`/`parseMount`) + 后端 `SimWebcamName.java`(`fillView`)、`CameraMount.java`(`toView()`) | 后端把相机 mount 改为结构化对象下发（`CameraMount.toView()`），前端 `parseMount` 读结构化字段、删除正则；`MIN_FACING` 阈值改由后端 `aprilTagMinFacing` 下发（`setMinFacing`），不再硬编码 |
 | #6 obstacle 高度未下发 | `Simulator.java:408` + 前端 `web/3d/field.js:199` | 后端 `fieldMessage` 补发 `height`；前端 `obstacleHeight()` 本就优先读 `o.height`，如今生效，不再按名字猜高度 |
 

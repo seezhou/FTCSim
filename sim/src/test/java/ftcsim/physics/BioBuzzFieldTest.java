@@ -2,6 +2,8 @@ package ftcsim.physics;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /** The BIOBUZZ field: two tipping HIVEs whose CELLs carry the AprilTag clusters. */
@@ -34,9 +36,13 @@ public class BioBuzzFieldTest {
         // the raised CELL mouth runs from 53.5 in to 65.6 in (manual values), so its centre - the cluster
         // origin the SDK puts "in the centre of the Cell opening" - is at 59.55 in
         assertEquals((53.5 + 65.6) / 2, redUp.z, 0.2, "the raised CELL opening centre");
+        // The cluster is a sticker on the CELL's bottom face, not inside the opening: Figure 9-15
+        // puts its centre 9.938 - 2.75 in below the front of the CELL, which at the 30° tilt is a
+        // vertical drop of (9.938 - 2.75) * cos(30°). The tags sit just under the 53.5 in lip.
+        double bottomFaceDrop = (9.938 - 2.75) * Math.cos(Math.toRadians(30));
         for (double[] off : redUp.memberOffsets) {
-            double z = redUp.memberPosition(off)[2];
-            assertTrue(z > 53.5 && z < 65.6, "each tag sits inside the CELL mouth, at " + z);
+            assertEquals(redUp.z - bottomFaceDrop, redUp.memberPosition(off)[2], 1e-3,
+                "each tag is on the CELL's bottom face");
         }
         for (double[] off : redDown.memberOffsets) {
             double z = redDown.memberPosition(off)[2];
@@ -65,6 +71,16 @@ public class BioBuzzFieldTest {
         double span = Math.hypot(first[0] - last[0], first[1] - last[1]);
         assertEquals(13.0, span, 0.5, "the outer tags are 13 in apart across the CELL");
         assertEquals(first[2], last[2], 1e-6, "the cluster is co-planar");
+    }
+
+    @Test @SuppressWarnings("unchecked")
+    public void onlyBioBuzzSendsCellGeometryToTheUi() {
+        Map<String, Object> extra = Field.biobuzz().rules().extraFieldData();
+        Map<String, Object> geom = (Map<String, Object>) extra.get("cellGeometry");
+        assertNotNull(geom, "the 3D view needs the CELL geometry");
+        assertEquals(BiobuzzRules.CELL_DEPTH_IN, geom.get("depth"));
+        assertEquals(BiobuzzRules.CELL_BOTTOM_IN, geom.get("bottom"));
+        assertTrue(Field.decode().rules().extraFieldData().isEmpty(), "DECODE has no CELLs to draw");
     }
 
     @Test public void decodeStillWorksAndFieldsAreSelectedByName() {

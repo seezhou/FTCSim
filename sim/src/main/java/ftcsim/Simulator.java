@@ -407,7 +407,7 @@ public final class Simulator {
         List<Map<String, Object>> obs = new ArrayList<>();
         for (Field.Obstacle o : world.field.obstacles) obs.add(Map.of("name", o.name, "minX", o.minX, "minY", o.minY, "maxX", o.maxX, "maxY", o.maxY, "height", o.height, "color", o.color));
         f.put("obstacles", obs);
-        f.put("cellGeometry", Field.cellGeometry());
+        f.putAll(world.field.rules().extraFieldData());
         f.put("aprilTagMinFacing", org.firstinspires.ftc.vision.apriltag.AprilTagProcessorImpl.MIN_FACING);
         return f;
     }

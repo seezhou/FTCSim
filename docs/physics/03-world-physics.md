@@ -125,10 +125,11 @@ stateDiagram-v2
 
 ## 源码证据
 
-- `sim/src/main/java/ftcsim/physics/World.java:17（DT=0.001）, 84-101（step 顺序）, 44（MAX_PROJECTILES）, 108-123（spawnProjectile）, 144-168（stepProjectiles/collectBalls）, 49-51（timeScale/stepFor）`
+- `sim/src/main/java/ftcsim/physics/World.java:17（DT=0.001）, 87-104（step 顺序）, 47（MAX_PROJECTILES）, 111-127（spawnProjectile）, 147-172（stepProjectiles/collectBalls）, 52-64（timeScale）, 73-80（stepFor）`
 - `sim/src/main/java/ftcsim/physics/Chassis.java:15-25（默认参数）, 40（inertiaZ）, 60-133（step）, 136-147（frictionForce）, 149-193（resolveCollisions）, 38-45（teleportEpoch）`
 - `sim/src/main/java/ftcsim/hardware/LauncherController.java:15-17（推断哲学）, 121-154（poll 决策/三陷阱）, 83-119（releaseOne）, 25-27（COOLDOWN/DEFAULT_MIN_RPM）, 52-59（pitchOverride）, 182-185（读 ServoState.position）`
-- `sim/src/main/java/ftcsim/physics/Projectile.java:73-90（step 顺序）, 97-112（阻力）, 160-181（落地/滚动）, 20-33（常量）, 252-258（rideInCell）`
+- `sim/src/main/java/ftcsim/physics/Projectile.java:73-90（step 顺序）, 97-112（阻力）, 160-184（落地/滚动）, 21-33（常量）`
+- `sim/src/main/java/ftcsim/physics/BiobuzzRules.java:145-219（collide/resolveCell/ride，第一批剥离后从 Projectile 移入）`
 - `sim/src/main/java/ftcsim/physics/DeadWheel.java:21-30（里程计推算）`
 - `sim/src/main/java/ftcsim/physics/Battery.java:14-17（电压 sag）`
 

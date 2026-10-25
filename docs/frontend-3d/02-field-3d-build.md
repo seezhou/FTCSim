@@ -168,7 +168,7 @@ flowchart LR
 | **obstacle 没有高度** | 后端 `fieldMessage`（`Simulator.java:407-409`）只发 `name/minX/minY/maxX/maxY/color`，**没有 height**；而 `Field.Obstacle` 类里其实**有** height 字段（`Field.java:21`）。前端只能按**名字正则猜**：`HIVE foot bar`→1.5、`FLOWER`→21.5、`goal`→40，未知默认 1.5（`field.js:193-202`） | 新赛季若出现名字不匹配的新障碍，高度就画错（默认 1.5 会变成贴地的薄片） |
 | **tag 尺寸字段名** | 后端发的是 `size`（`Simulator.java:405`），前端曾读 `sizeIn`，导致回退到默认 6.5 in——而 CELL 上的 tag 只有 3.25 in 且间距 3.75 in，结果白色标签互相重叠（注释见 `field.js:427-429`） | 已兼容 `t.size \|\| t.sizeIn`，但属于"靠容错兜住"而非契约明确 |
 
-> 顺带印证第 10 篇：`field.js` 原本硬编码了一整组赛季常量（`CELL_PENT`、`CELL_DEPTH`、`HIVE_PIVOT_Z`、`HIVE_Y`、`HIVE_TILT`），和后端 `Field.java` 的数值重复——这正是 #3 修掉的问题：现在 CELL/HIVE 几何改由后端 `Field.cellGeometry()` 通过 `fieldMessage` 下发，前端只保留兜底值，单一数据源。
+> 顺带印证第 10 篇：`field.js` 原本硬编码了一整组赛季常量（`CELL_PENT`、`CELL_DEPTH`、`HIVE_PIVOT_Z`、`HIVE_Y`、`HIVE_TILT`），和后端 `Field.java` 的数值重复——这正是 #3 修掉的问题：现在 CELL/HIVE 几何改由后端通过 `fieldMessage.cellGeometry` 下发（第一批剥离后该字段由 `BiobuzzRules.extraFieldData()` 提供），前端只保留兜底值，单一数据源。
 
 ## 源码证据
 
