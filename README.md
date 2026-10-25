@@ -43,10 +43,15 @@ main class directly). Other options:
 
 ```bash
 ./gradlew run -Prepo=../Decode --args="--port 9000 --no-browser"
-./gradlew run -Prepo=../MyRepo --args="--config configs/MyRobot.json"
+./gradlew run -Prepo=../MyRepo --args="--config /absolute/path/to/configs/MyRobot.json"
 ./gradlew run -Prepo=../MyRepo --args="--samples"      # also load the official sample OpModes
 ./gradlew run -Prepo=../MyRepo --args="--prebuilt"     # use classes Android Studio built (Kotlin projects)
 ```
+
+`gradlew run` executes the simulator with `sim/` as its working directory, so an explicit relative
+path in `--config`, `--data` or `--web` resolves against `sim/`. (Defaults are unaffected: they use
+`ftcsim.home`, which the Gradle run sets to the repository root, so the default config lives in
+`configs/` here.) Use an absolute path, or `../configs/...`, for an explicit `--config`.
 
 The default team repository can also be set once in `ftcsim.properties` (committed here as
 `repo=../FtcRobotController`): with that file present you can run `./gradlew run` and skip `-Prepo`.
@@ -227,6 +232,16 @@ declared parts and their poses, the colour encoding, the chassis geometry, and t
 end to end from the team's TeleOp. They locate Chrome through `$FTCSIM_CHROME` (or the platform
 default) and write screenshots to `build/`, so they need no npm install. Run them against a server
 already started with `./gradlew run`.
+
+## License
+
+This repository is a fork of [WheatleyFromPortal2/FTCSim](https://github.com/WheatleyFromPortal2/FTCSim).
+The upstream project currently declares no license, so this fork does not relicense the upstream code;
+a project-wide license can only be added once that is clarified with the upstream author.
+
+Third-party components keep their own licenses. The FTC SDK, Three.js, OpenCV/EasyOpenCV/AprilTag,
+Gson, Kotlin and JSON-java are redistributed or loaded under the terms listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); full texts are in [`licenses/`](licenses/).
 
 ## Layout
 
