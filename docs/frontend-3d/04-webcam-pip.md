@@ -3,14 +3,10 @@ summary: 画中画 = 第二个渲染器 + 检出框的 3D 投影
 refs:
   - path: sim/src/main/resources/web/3d/webcam.js
     anchor: "function drawOverlay()"
-    lines: 112-160
-    hash: 36bc48041160
-    since: f353923
+    hash: e3e9687d989f
   - path: sim/src/main/resources/web/3d/webcam.js
     anchor: "export function parseMount(devices)"
-    lines: 189-200
-    hash: c99a4912d67d
-    since: f353923
+    hash: 84ff13566e63
 ---
 
 # 机器人摄像头与 AprilTag 检出框（Phase 2 · 第 4 步：`webcam.js`）
@@ -104,7 +100,7 @@ flowchart TD
 
 ---
 
-## 图 4：数据从哪来——两条正则
+## 图 4：数据从哪来——结构化 + 正则
 
 `parseMount` 与 `parseDetections` 都是从 20 Hz `state.devices` 消息里"抠"出来的：
 
@@ -113,7 +109,7 @@ flowchart LR
   MSG["state.devices（20 Hz）"]
 
   MSG --> WM["找 type 含 webcam 的设备"]
-  WM --> RE1["MOUNT_RE 解析 mount 字符串<br/>'(6.0, 0.0, 10.0) in yaw 0 pitch 60 fov 76x43'<br/>:24<br/>→ {xIn,yIn,zIn,yawDeg,pitchDeg,hfovDeg,vfovDeg}"]
+  WM --> RE1["读 CameraMount.toView() 下发的结构化 mount 对象<br/>→ {xIn,yIn,zIn,yawDeg,pitchDeg,hfovDeg,vfovDeg}"]
   RE1 --> APPLY["applyMount() → robot.setCamMount()<br/>把 pod 摆到团队声明的位置"]
 
   MSG --> VP["找 type 含 visionportal 的设备"]
@@ -126,7 +122,7 @@ flowchart LR
   class WM,RE1,APPLY,VP,RE2,SET web
 ```
 
-**这里有个不一致值得记下来**：第 12 篇讲过，电机/伺服的 `DeviceMount` 下发的是**结构化 JSON 对象**（`DeviceMount.toView()`），前端直接读字段。而**相机 mount 是一个格式化字符串**，前端只能靠正则拆（:22-24 注释也点明了这点）。字符串解析更脆弱——后端格式一变（比如加个字段或改个分隔符），正则就失效。将来若要顺手改进，把相机 mount 也改成结构化对象是低风险且划算的。
+**前后端现在一致了**：电机/伺服的 `DeviceMount` 与相机的 `CameraMount` 都通过各自的 `toView()` 下发**结构化 JSON 对象**，前端直接读字段（`parseMount` 不再用正则拆字符串）。这是 #4 完成的改进——消除了之前“相机 mount 是格式化字符串、正则脆弱”的不一致。
 
 ---
 
@@ -152,7 +148,7 @@ flowchart TD
 
 - PiP 架构：`webcam.js:31-34`（第二 renderer、关阴影）、`:42-47`（第二 camera、`rotation.y=-π/2`、挂到 `camPivot`）、`:163-175`（`render` 隐藏 pod→渲染→恢复→画框）
 - FOV 推导：`:50-63`（`resize`，水平 FOV 为锚点推导垂直）
-- 检出框：`:103-109`（`facingOK` 与 `MIN_FACING=0.25`）、`:112-160`（AABB→8 角投影→屏幕坐标→2D 绘制）
-- 数据解析：`:189-200`（`parseMount`，正则拆字符串）、`:203-219`（`parseDetections`）
+- 检出框：`:103-109`（`facingOK` 与后端下发的 `minFacing` 阈值）、`:112-160`（AABB→8 角投影→屏幕坐标→2D 绘制）
+- 数据解析：`:189-200`（`parseMount`，读结构化 `CameraMount` 对象）、`:203-219`（`parseDetections`）
 - 联动：`main.js:415`（创建）、`:438-445`（`applyMount`）、`:502`（`setDetections`）、`:536-544`（每帧 render 与 fps）、`:456-473`（状态行与 synced 文案）
-- 后端对照：`AprilTagProcessorImpl.java:198`（`cam.see(..., 0.25)` 同样的朝向阈值）
+- 后端对照：`AprilTagProcessorImpl.java`（`cam.see(..., MIN_FACING)`，`MIN_FACING` 是后端常量、值 0.25，与前端同源）

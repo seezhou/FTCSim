@@ -3,14 +3,10 @@ summary: Three.js 零基础入门（用 DOM/CSS/rAF 类比）
 refs:
   - path: sim/src/main/resources/web/3d/main.js
     anchor: "function animate()"
-    lines: 524-553
-    hash: 828f395e07a1
-    since: f353923
+    hash: f30396102fb1
   - path: sim/src/main/resources/web/3d/field.js
     anchor: "export function ftc(x, y, z = 0)"
-    lines: 28-28
-    hash: 428752ac3b3a
-    since: f353923
+    hash: 7244b8c35496
 ---
 
 # Three.js 零基础入门（Phase 2 准备篇 · 用 web 概念做类比）

@@ -3,14 +3,10 @@ summary: 射球/发射器/HIVE·CELL 的实现、配置 schema 与 9 条踩坑
 refs:
   - path: sim/src/main/java/ftcsim/physics/Field.java
     anchor: "public static final int HIVE_TIP_BALLS"
-    lines: 290-290
-    hash: 8995bfd71234
-    since: f353923
+    hash: 6fa835dbf536
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
-    lines: 123-154
-    hash: b0118a157fcd
-    since: f353923
+    hash: 71c560d63844
 ---
 
 # FTCSim — 射球 / 发射器 / HIVE·CELL（现状总结）

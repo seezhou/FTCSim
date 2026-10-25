@@ -3,14 +3,10 @@ summary: Phase 2 总览：前端模块拓扑 + 逐帧时序
 refs:
   - path: sim/src/main/resources/web/3d/main.js
     anchor: "function handle(m)"
-    lines: 112-151
-    hash: 2b74052c84f3
-    since: f353923
+    hash: 66bd6c2a060a
   - path: sim/src/main/resources/web/3d/main.js
     anchor: "function animate()"
-    lines: 524-553
-    hash: 828f395e07a1
-    since: f353923
+    hash: f30396102fb1
 ---
 
 # FTCSim Phase 2 总览（第 7 步：结构图 + 逐帧时序图）

@@ -3,19 +3,15 @@ summary: 场地描述如何变成 3D 几何（rebuild 七步流水线）
 refs:
   - path: sim/src/main/resources/web/3d/field.js
     anchor: "function rebuild(fieldMsg)"
-    lines: 555-565
-    hash: 0e80cd6948dd
-    since: f353923
+    hash: 23cbb120f38a
   - path: sim/src/main/resources/web/3d/field.js
     anchor: "function buildClusters(field)"
-    lines: 276-343
-    hash: 92c6d0495c44
-    since: f353923
+    hash: 9e3087eb3d01
 ---
 
 # 场地描述如何变成 3D 几何（Phase 2 · 第 2 步：`field.js`）
 
-一句话：**后端把场地"描述"成一堆通用基元（区域/障碍/标签/元素位姿），前端 `field.js` 按 `rebuild()` 的七步流水线把它们逐个翻译成 Three.js 对象**。前端没有任何硬编码的场地形状——**除了** CELL/HIVE 那一块（第 10 篇分析过的赛季固化部分）。
+一句话：**后端把场地"描述"成一堆通用基元（区域/障碍/标签/元素位姿），前端 `field.js` 按 `rebuild()` 的七步流水线把它们逐个翻译成 Three.js 对象**。前端现在没有任何硬编码的场地形状——CELL/HIVE 的几何也由后端通过 `fieldMessage.cellGeometry` 下发（#3 之后不再手抄赛季常量）。
 
 ---
 
@@ -172,7 +168,7 @@ flowchart LR
 | **obstacle 没有高度** | 后端 `fieldMessage`（`Simulator.java:407-409`）只发 `name/minX/minY/maxX/maxY/color`，**没有 height**；而 `Field.Obstacle` 类里其实**有** height 字段（`Field.java:21`）。前端只能按**名字正则猜**：`HIVE foot bar`→1.5、`FLOWER`→21.5、`goal`→40，未知默认 1.5（`field.js:193-202`） | 新赛季若出现名字不匹配的新障碍，高度就画错（默认 1.5 会变成贴地的薄片） |
 | **tag 尺寸字段名** | 后端发的是 `size`（`Simulator.java:405`），前端曾读 `sizeIn`，导致回退到默认 6.5 in——而 CELL 上的 tag 只有 3.25 in 且间距 3.75 in，结果白色标签互相重叠（注释见 `field.js:427-429`） | 已兼容 `t.size \|\| t.sizeIn`，但属于"靠容错兜住"而非契约明确 |
 
-> 顺带印证第 10 篇：`field.js:232-240` **前端硬编码了一整组赛季常量**（`CELL_PENT`、`CELL_DEPTH`、`HIVE_PIVOT_Z`、`HIVE_Y`、`HIVE_TILT`），和后端 `Field.java:246/252` 的数值重复。明年换赛季，这两处都要改——这也是我建议"几何只留一份、由后端下发"的原因。
+> 顺带印证第 10 篇：`field.js` 原本硬编码了一整组赛季常量（`CELL_PENT`、`CELL_DEPTH`、`HIVE_PIVOT_Z`、`HIVE_Y`、`HIVE_TILT`），和后端 `Field.java` 的数值重复——这正是 #3 修掉的问题：现在 CELL/HIVE 几何改由后端 `Field.cellGeometry()` 通过 `fieldMessage` 下发，前端只保留兜底值，单一数据源。
 
 ## 源码证据
 
@@ -180,5 +176,5 @@ flowchart LR
 - 资源释放：`:34-44`（`disposeObject`）
 - 贴图生成：`:47-73`（AprilTag 数字）、`:78-95`（CELL 贴纸）、`:98-109`（文字标签）
 - 流水线：`:551-561`（`rebuild`）、`:118-124`（`clear`）、`:127-171`（`buildShell`）、`:174-189`（`buildZones`）、`:204-214`（`buildObstacles`）、`:272-339`（`buildClusters`）、`:423-465`（`buildTags`）、`:467-535`（`buildShapes`）
-- CELL / HIVE：`:220-225`（`cellBasis`）、`:232-240`（赛季常量）、`:243-251`（`addEdgeTube`）、`:341-390`（`buildHives`）、`:398-410`（`aimHives`）、`:413-421`（`update` 缓动）
+- CELL / HIVE：`:220-225`（`cellBasis`）、`rebuild` 内由 `fieldMsg.cellGeometry` 注入几何（不再手抄赛季常量，见 #3）、`:243-251`（`addEdgeTube`）、`:341-390`（`buildHives`）、`:398-410`（`aimHives`）、`:413-421`（`update` 缓动）
 - 后端对照：`Simulator.java:382-411`（`fieldMessage`）、`Field.java:18-47`（`Obstacle`/`Goal`）、`:246/252`（CELL 常量）

@@ -3,14 +3,10 @@ summary: World.step 七步顺序、底盘运动学、发射物与 launcher 三�
 refs:
   - path: sim/src/main/java/ftcsim/physics/World.java
     anchor: "public void step(double dt)"
-    lines: 84-101
-    hash: ab4a625feae5
-    since: f353923
+    hash: a9e047d54757
   - path: sim/src/main/java/ftcsim/hardware/LauncherController.java
     anchor: "public void poll()"
-    lines: 123-154
-    hash: b0118a157fcd
-    since: f353923
+    hash: 71c560d63844
 ---
 
 # FTCSim 物理积分与世界（Phase 1 · 第 4 步）

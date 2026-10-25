@@ -3,14 +3,10 @@ summary: hub 时延 / 暂停门 / 线程豁免（真实感三件套）
 refs:
   - path: sim/src/main/java/ftcsim/hardware/HardwareBus.java
     anchor: "public static void gate()"
-    lines: 86-94
-    hash: f79128ee902e
-    since: f353923
+    hash: d345eeacc9fc
   - path: sim/src/main/java/ftcsim/hardware/HardwareBus.java
     anchor: "private static void charge(double millis, AtomicLong counter, long count)"
-    lines: 73-83
-    hash: f890793a4ba7
-    since: f353923
+    hash: 516c4765a87b
 ---
 
 # FTCSim 真实感三件套（Phase 1 · 第 5 步：hub 时序延迟 / 暂停门 / 线程豁免）

@@ -3,24 +3,16 @@ summary: 四个前端周边模块的详解与图：balls（纯展示球）/ over
 refs:
   - path: sim/src/main/resources/web/3d/balls.js
     anchor: "createBalls("
-    lines: 29-94
-    hash: bbfc913ed510
-    since: f353923
+    hash: 16e9a73105e2
   - path: sim/src/main/resources/web/3d/overlay.js
     anchor: "createOverlay("
-    lines: 158-279
-    hash: 1385c4d7f2f9
-    since: f353923
+    hash: 909753ec1e65
   - path: sim/src/main/resources/web/3d/drag.js
     anchor: "startRobotDrag("
-    lines: 13-106
-    hash: 2b6bcdab4c90
-    since: f353923
+    hash: 916c6494ee89
   - path: sim/src/main/resources/web/3d/gamepad.js
     anchor: "class Pad"
-    lines: 17-60
-    hash: 5c5d2b515840
-    since: f353923
+    hash: ac4e684ee0bb
 ---
 
 # 输入与叠加层模块（balls / overlay / drag / gamepad）

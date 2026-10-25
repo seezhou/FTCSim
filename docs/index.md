@@ -89,16 +89,16 @@ summary: 文档总索引：按主题分类的入口、建议阅读路线与维�
 2. **序号只在各自目录内从 01 连续**，它是该主题下的阅读顺序，不是全局写作顺序；跨目录时以目录名为准。
 3. **发现文档与代码不符**：明确的错误直接改（并在附近留一句校对注说明依据）；一时无法确认的记进 `known-issues.md`。
 4. **保鲜机制已就位**。每篇的 front matter 里 `refs` 记录了这篇文档依赖的源码位置：
-   `path` + `anchor` + `lines` + `hash` + `since`。改动源码后跑一下校验脚本，就知道哪些文档受影响：
+   `path` + `anchor` + `hash`。改动源码后跑一下校验脚本，就知道哪些文档受影响：
 
-   ```powershell
-   .\tools\docs-check.ps1            # 报告：哪些文档的哪些引用已经变化
-   .\tools\docs-check.ps1 -Update    # 文档修订完后，重新记录基准（刷新 hash/lines/since）
+   ```bash
+   node tools/docs-check.mjs            # 报告：哪些文档的哪些引用已经变化
+   node tools/docs-check.mjs --update   # 文档修订完后，重新记录基准（刷新 hash）
    ```
 
    两个关键设计：
    - 校验时**按锚点重新定位**，而不是死记行号——所以"代码只是挪了位置、内容没变"**不会**被误报；
-   - 报告里给出 `git diff <since>..HEAD -- <file>`，让你直接看到"变成什么样了"，而不只是"变了"。
+   - 报告里给出 `git diff HEAD -- <file>`，让你直接看到"变成什么样了"，而不只是"变了"。
 
    目前每篇锚定 2–4 个最核心的符号（共 39 个引用），未覆盖全文所有源码证据；需要时可按同样格式扩充。
-   脚本是 PowerShell（本机没有 node，所以不用 `.mjs`）。
+   脚本是 Node（`tools/docs-check.mjs`），跨平台。

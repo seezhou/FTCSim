@@ -3,14 +3,10 @@ summary: 通用引擎 vs 赛季专属的分层；泄漏点与剥离建议
 refs:
   - path: sim/src/main/java/ftcsim/physics/Field.java
     anchor: "public static Field byName(String name)"
-    lines: 170-177
-    hash: 0cba9b497f22
-    since: f353923
+    hash: d2f6e8c3ea1e
   - path: sim/src/main/java/ftcsim/physics/Projectile.java
     anchor: "private void resolveCell(Field.Cluster cl)"
-    lines: 203-249
-    hash: d26091e51d6b
-    since: f353923
+    hash: e2e3284f986f
 ---
 
 # 赛季可复用性分层图（通用引擎 / 几何数据 / 赛季插件）
