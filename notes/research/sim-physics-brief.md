@@ -36,7 +36,9 @@
 5. **结论持续追加**：每完成一步，把结论追加到 `notes/research/sim-physics-research-notes.md`，格式为
    【日期 | 步骤 | 结论 | 源码证据文件】。会话中断后从这里继续。
 6. **文档与代码的关联**：每篇文档末尾保留"源码证据"清单，但**行号会漂移**，引用前回源码核对。
-   待办中的改进是为每篇加结构化 `refs`（含内容哈希与当时 commit），详见 `docs/known-issues.md`。
+   结构化 `refs` 已落地（`path` / `anchor` / `hash`）：`anchor` 重新定位代码，`hash` 校验锚点起的
+   40 行，`node tools/docs-check.mjs --check` 在 CI 里拦截漂移。**刻意不存行号与当时 commit**——
+   它们每次编辑都会变，只会制造噪声 diff。详见 `docs/known-issues.md`。
 
 ## Phase 1 任务拆解（物理模拟这道题）—— 七步全部完成 ✅
 

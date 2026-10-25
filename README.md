@@ -221,12 +221,12 @@ starts. (The camera panel's pitch slider is the camera's alone.)
   queue: sending never blocks, a client that keeps dropping frames is disconnected, and closing a
   client shuts its socket down first, which is what releases a stuck writer.
 * **Device settings in the shipped configurations were silently ignored.** `RobotConfig.Device` reads
-  everything except `name`, `type`, `hub` and `port` out of a nested `params` object, but
-  `configs/Biobuzz.json` wrote `motorType`, `mount` and the Pinpoint `xPod`/`yPod` at the device
-  level, where Gson drops them without complaint. Every motor ran on the wrong characteristics and
-  the odometry pods used no offset at all. The same file also had no `drivetrain` block in
-  `configs/FtcRobotController.json`, so that robot ran on the default 3.78 in wheels and 14 × 12 in
-  geometry whatever it was actually built with.
+  everything except `name`, `type`, `hub` and `port` out of a nested `params` object, but the
+  BIOBUZZ config shipped at the time, `configs/Biobuzz.json` (since removed), wrote `motorType`,
+  `mount` and the Pinpoint `xPod`/`yPod` at the device level, where Gson drops them without
+  complaint. Every motor ran on the wrong characteristics and the odometry pods used no offset at
+  all. `configs/FtcRobotController.json` also had no `drivetrain` block, so that robot ran on the
+  default 3.78 in wheels and 14 × 12 in geometry whatever it was actually built with.
 
 ## Tests
 
