@@ -4,7 +4,7 @@
 // the orbit-camera behavior untouched. Pose changes ride the existing
 // "sim.setPose" WebSocket message — the same channel the 2D frontend uses.
 import * as THREE from 'three';
-import { getHalfField } from './field';
+import { getHalfField } from './field.js';
 
 // half field comes from the backend fieldMessage.sizeIn (via field.getHalfField());
 // the 72 fallback there only applies if this runs before the first rebuild.
