@@ -20,7 +20,7 @@ let failed = 0;
 for (const f of files) {
   const src = readFileSync(join(web, f), 'utf8');
   // Rewrite bare specifiers to a relative stub so the module graph resolves offline.
-  const patched = src.replace(/from\s+(['"])(?![\./])/g, "from '$1./__stub__.js$1");
+  const patched = src.replace(/from\s+(['"])(?![.\/])([^'"]+)\1/g, "from './__stub__.js'");
   const target = join(tmp, f);
   writeFileSync(target, patched);
   try {
