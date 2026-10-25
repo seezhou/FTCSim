@@ -1,5 +1,16 @@
 ---
 summary: 零件如何按 mount 摆放与动画（三层 Group、两遍挂载）
+refs:
+  - path: sim/src/main/resources/web/3d/parts.js
+    anchor: "export function buildPartMesh(mount)"
+    lines: 55-117
+    hash: a43c7c7ed839
+    since: 2581a52
+  - path: sim/src/main/java/ftcsim/vision/DeviceMount.java
+    anchor: "public Map<String, Object> toView()"
+    lines: 54-63
+    hash: 8c2b8267092c
+    since: 2581a52
 ---
 
 # 零件如何按 mount 摆上机器人（Phase 2 · 第 3 步：`robot.js` / `parts.js`）

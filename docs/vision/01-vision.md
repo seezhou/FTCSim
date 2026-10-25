@@ -1,5 +1,16 @@
 ---
 summary: AprilTag 是几何检出而非图像处理；视锥六重门槛与噪声模型
+refs:
+  - path: sim/src/main/java/org/firstinspires/ftc/vision/apriltag/AprilTagProcessorImpl.java
+    anchor: "public void simFrame(CameraMount mount"
+    lines: 165-253
+    hash: 0a126747f897
+    since: 2581a52
+  - path: sim/src/main/java/org/firstinspires/ftc/vision/VisionPortalImpl.java
+    anchor: "private void frameLoop()"
+    lines: 78-95
+    hash: 1f17ae93ffd6
+    since: 2581a52
 ---
 
 # FTCSim Vision（Phase 1 · 第 6 步：`VisionPortalImpl` → `AprilTagProcessorImpl`）

@@ -1,5 +1,16 @@
 ---
 summary: 画中画 = 第二个渲染器 + 检出框的 3D 投影
+refs:
+  - path: sim/src/main/resources/web/3d/webcam.js
+    anchor: "function drawOverlay()"
+    lines: 112-160
+    hash: 36bc48041160
+    since: 2581a52
+  - path: sim/src/main/resources/web/3d/webcam.js
+    anchor: "export function parseMount(devices)"
+    lines: 189-200
+    hash: c99a4912d67d
+    since: 2581a52
 ---
 
 # 机器人摄像头与 AprilTag 检出框（Phase 2 · 第 4 步：`webcam.js`）

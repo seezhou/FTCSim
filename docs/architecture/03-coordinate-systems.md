@@ -1,5 +1,16 @@
 ---
 summary: FTC / Pedro / Three.js 三套坐标系换算（Pedro 仅存在于 UI 层）
+refs:
+  - path: sim/src/main/resources/web/3d/panels.js
+    anchor: "const toPedro = (x, y, h)"
+    lines: 21-22
+    hash: 147c2d0d96ce
+    since: 2581a52
+  - path: sim/src/main/resources/web/3d/field.js
+    anchor: "export function ftc(x, y, z = 0)"
+    lines: 26-26
+    hash: 428752ac3b3a
+    since: 2581a52
 ---
 
 # 三套坐标系总图（Phase 2 · 第 5 步 · 收官）

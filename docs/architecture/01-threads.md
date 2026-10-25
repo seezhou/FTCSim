@@ -1,5 +1,16 @@
 ---
 summary: 进程内线程拓扑；谁在推 tick（1 kHz physics 是唯一推 tick 的线程）
+refs:
+  - path: sim/src/main/java/ftcsim/physics/World.java
+    anchor: "private void loop()"
+    lines: 285-319
+    hash: f559e0effd7c
+    since: 2581a52
+  - path: sim/src/main/java/ftcsim/Simulator.java
+    anchor: "private void broadcastLoop()"
+    lines: 611-652
+    hash: 839b36ebc9b1
+    since: 2581a52
 ---
 
 # FTCSim 进程内线程拓扑（Phase 1 · 第 1 步：总览梳理）

@@ -1,5 +1,16 @@
 ---
 summary: setPower 经 MotorState 到物理积分再到编码器读数；hub PIDF 仿真的位置
+refs:
+  - path: sim/src/main/java/ftcsim/physics/MotorState.java
+    anchor: "public double controlStep(double dt)"
+    lines: 126-153
+    hash: 195dcd37c1a2
+    since: 2581a52
+  - path: sim/src/main/java/ftcsim/hardware/SimMotorController.java
+    anchor: "public void setMotorPower(int port, double power)"
+    lines: 69-74
+    hash: 3f35a465f8da
+    since: 2581a52
 ---
 
 # FTCSim 电机信号链图（Phase 1 · 第 2 步：电机信号链）
