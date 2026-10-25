@@ -82,5 +82,48 @@ Desktop simulator for FTC robot code (see README.md for usage). Key facts for wo
   `pitchDeg` is only where that slider starts.
 
 ## Conventions
-- Commit messages: plain description, no model identifiers.
+- Commit messages: plain description, no model identifiers. Written in **English**, matching the
+  existing history (`git log --oneline` shows all-English messages); imperative mood — "Add …",
+  "Fix …", "Move …". Chinese is not used in commit messages.
+- Language: prose in `docs/` and `notes/research/` is written in **Chinese**; code identifiers,
+  class/method names, config keys and WebSocket message `type` values stay in **English**.
+  Introduce a term once as 中文（English name）, then stick to one name for it.
 - Do not use the Frontend Design skill unless asked. UI is vanilla JS/CSS in `sim/src/main/resources/web`.
+
+## Documentation map (load on demand)
+
+Long-form write-ups live in `docs/` (one topic per file: Mermaid diagrams plus a "source evidence"
+list), grouped by area: `docs/architecture`, `docs/physics`, `docs/vision`, `docs/frontend-3d`,
+`docs/launcher`, `docs/seasons`. The running conclusions log is `notes/research/`.
+**Start at `docs/index.md`, then load a file only when the task touches that topic** — do not read
+them all up front.
+
+| Area | Doc | Read it when |
+|---|---|---|
+| Overview | `docs/index.md` | start here — the topic index and suggested reading routes |
+| Architecture | `docs/architecture/01-threads.md` | thread topology; "who advances the tick" |
+| Architecture | `docs/architecture/02-websocket-drive.md` | the hello/field/state messages that drive the web UI |
+| Architecture | `docs/architecture/03-coordinate-systems.md` | converting FTC / Pedro / Three.js frames (Pedro is UI-only) |
+| Architecture | `docs/architecture/04-phase1-overview.md` | Phase 1 summary: module+thread structure and per-tick timing |
+| Physics | `docs/physics/01-motor-signal-chain.md` | setPower to physics to encoder reads; hub PIDF |
+| Physics | `docs/physics/02-sensor-model.md` | IMU, servo `secondsFullRange`, digital/analog, I2C |
+| Physics | `docs/physics/03-world-physics.md` | `World.step` order, chassis kinematics, projectiles/launcher |
+| Physics | `docs/physics/04-hub-timing-gate.md` | hub latency, pause gate, thread exemption |
+| Vision | `docs/vision/01-vision.md` | AprilTag geometric detection (there are no camera frames) |
+| Frontend 3D | `docs/frontend-3d/01-threejs-basics.md` | new to Three.js: core concepts with web analogies |
+| Frontend 3D | `docs/frontend-3d/02-field-3d-build.md` | how the field description becomes 3D geometry |
+| Frontend 3D | `docs/frontend-3d/03-robot-parts.md` | how parts are placed and animated from device mounts |
+| Frontend 3D | `docs/frontend-3d/04-webcam-pip.md` | picture-in-picture camera and the AprilTag boxes |
+| Frontend 3D | `docs/frontend-3d/05-phase2-overview.md` | Phase 2 summary: frontend module topology + per-frame timing |
+| Launcher | `docs/launcher/01-ball-launcher.md` | projectiles, launcher config/inference, HIVE/CELL, 9 pitfalls |
+| Seasons | `docs/seasons/01-season-abstraction.md` | reusable vs season-specific layering; adding a season |
+| Known issues | `docs/known-issues.md` | known bugs and deferred fixes |
+| Research log | `notes/research/sim-physics-research-notes.md` | running conclusions log: Phase 1 = 1–27, Phase 2 = 28–47 |
+
+Caveats:
+- Each doc ends with `file:line` references. Line numbers drift — re-check against the code before
+  trusting a claim, and prefer symbol names when searching.
+- The numeric prefixes are **writing order, not a topic taxonomy**; a topic-based reorganisation is
+  planned, so route via the table above rather than guessing from filenames.
+- Facts that must not silently drift (hub latencies, default constants) belong in tests under
+  `sim/src/test/`, not only in prose.
