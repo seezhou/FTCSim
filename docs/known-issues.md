@@ -62,13 +62,7 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 ## 待修（文档）
 
-- **研究笔记结论 44**：
-  - "输入源优先级：物理 > 键盘 > 虚拟手柄"的表述需修正——虚拟手柄**不是轮询源**，它直接写 `p.s`，
-    只在没有轮询源（物理 / 键盘）覆盖它时才保留（见 `gamepad.js:231-245`）；
-  - KEYMAP 的行号归属有误：WASD、方向键、Q/E **不在** `KEYMAP`（`:12-14`），而在 `applyKeyboard()`（`:44-51`）；
-    同时 KEYMAP 里还有 `KeyR→start`、`Backspace→back`、`Tab→guide` 未被列出。
-- **研究笔记结论 9 的验证部分**：`ball-launcher.md` 原写"3 球 tip"，实际为 4（已在 `docs/launcher/ball-launcher.md` 更正，
-  但研究笔记若引用到该数字需同步）。
+（暂无。原列的两项——结论 44 表述 / KEYMAP 行号、结论 9 数字同步——已于 2026-10-24 核查并修正，见下方「已修」。）
 
 ---
 
@@ -77,6 +71,8 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 | 问题 | 位置 | 处理 |
 |---|---|---|
 | `HIVE_TIP_BALLS` 记 3，代码是 4 | `docs/launcher/01-ball-launcher.md`（原 `.codebuddy/notes/ball-launcher.md`） | 已改为 **4**，并加校对注说明依据（`Field.java:290`，注释说明手册未给数字、sim 取 4） |
+| 结论 44：输入源优先级表述 + KEYMAP 行号归属错误 | `notes/research/sim-physics-research-notes.md` 结论 44（`:612-618`）+ 源码证据列表（`:624`） | 修正两点：①虚拟手柄**不是轮询源**，仅在物理/键盘都未激活时保留 `p.s`（依据 `gamepad.js:231-245`）；②WASD/方向键/Q·E 在 `applyKeyboard()`（`:44-51`）做轴向合成，不在 `KEYMAP`（`:12-14`），并补全 `KeyR→start`/`Backspace→back`/`Tab→guide` |
+| 结论 9：tip-ball 数字同步核查 | `notes/research/sim-physics-research-notes.md` | 全文 `HIVE_TIP_BALLS` 零命中，研究笔记从未引用该数字，无需同步；3/4 球更正已在 `docs/launcher/01-ball-launcher.md` 完成 |
 
 ---
 

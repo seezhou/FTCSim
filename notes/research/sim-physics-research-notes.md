@@ -611,7 +611,7 @@ PIDF 在 `controlStep` 的 `RUN_USING_ENCODER` 与 `RUN_TO_POSITION` 分支里�
 
 ## 结论 44：`gamepad.js` —— 物理手柄 + 键盘 + 虚拟手柄三合一，及 rumble 回放
 
-`gamepad.js:64-266`：每个 gamepad 一个 `Pad`；输入源优先级：物理手柄（浏览器 Gamepad API，DS 式分配：**Start+A→GP1 / Start+B→GP2**，`:217-230`）> 键盘（GP1，`KEYMAP`：WASD/方向键/ZXC/V/1234/QE/TFGH，`:12-14`）> 虚拟手柄（2D 同款 widget，`:75-148`，可当输入设备）。30 Hz `loop()`（`:205-251`）轮询物理手柄 + `sendIfNeeded` 只在状态变化时发 `{type:'gamepad', id, state}`（`sendIfNeeded`，`:53-59`），每 15 轮一次 keepalive。
+`gamepad.js`：每个 gamepad 一个 `Pad`（`constructor` `:17-28`）。**输入融合**（`loop()` `:205-251`）：每轮先查物理手柄（浏览器 Gamepad API，DS 式分配 **Start+A→GP1 / Start+B→GP2** `:217-230`），有则 `applyPhysical()` 覆盖 `p.s`；否则若 GP1 仍有键盘按键则 `applyKeyboard()`（`:44-51`）；**两者都无时 `p.s` 保持原值**——这一「原值」正是**虚拟手柄**直接写入的（`:75-148`，2D 同款 widget）。故虚拟手柄**不是轮询源**，仅在物理/键盘都未激活时才保留，优先级应读作「物理 > 键盘 > 虚拟手柄（仅当无轮询源时有效）」，而非三者轮流覆盖。离散按键靠 `KEYMAP`（`:12-14`）查表（Z/X/C/V→a/b/x/y，Digit1/2/3/4→lb/rb/ls/rs，T/G/F/H→du/dd/dl/dr，另含 `KeyR→start`、`Backspace→back`、`Tab→guide`）；而 **WASD / 方向键（左右摇杆）/ Q·E（扳机 lt/rt）在 `applyKeyboard()`（`:44-51`）里用 `ax()` 做轴向合成，不进 `KEYMAP`**（原笔记误把它们归到 `KEYMAP:12-14`）。30 Hz `loop()` 轮询物理手柄 + `sendIfNeeded` 仅在状态变化时发 `{type:'gamepad', id, state}`（`:53-59`），每 15 轮一次 keepalive。
 
 **rumble 回放**（`:156-201`）：后端在 OpMode 的 `gamepad1.rumble(...)` 效果队列里 drain（Phase 1）后经 `gamepad.rumble` websocket 下发，前端 `applyRumble` 在 `vibrationActuator.playEffect('dual-rumble', {...})` 上回放（`:162-167`）：`large→strong`、`small→weak`、`duration=-1` 当作 10 分钟连续效果、零功率/stop 消息重置（`:187, 199-201`）。无控制器时虚拟手柄面板显示 `rumble` 徽标（`:172-175`）。
 
@@ -621,7 +621,7 @@ PIDF 在 `controlStep` 的 `RUN_USING_ENCODER` 与 `RUN_TO_POSITION` 分支里�
 - `sim/src/main/resources/web/3d/activity.js:23-31（HUE/DEAD_ZONE）, 42-60（motor/servoColor）, 69-71（activityColor）`
 - `sim/src/main/resources/web/3d/balls.js:34-35（共享单位球）, 46-76（setState/tint）, 79-83（update 插值）`
 - `sim/src/main/resources/web/3d/drag.js:25-40（拾取+pushPose+乐观更新）, 29（toFtc）, 8-9（LIMIT/SEND_MS）`
-- `sim/src/main/resources/web/3d/gamepad.js:12-14（KEYMAP）, 53-59（sendIfNeeded）, 75-148（虚拟手柄）, 156-201（rumble 回放）, 217-230（DS 式分配）, 205-251（30Hz loop）`
+- `sim/src/main/resources/web/3d/gamepad.js:12-14（KEYMAP）, 44-51（applyKeyboard 轴向合成）, 53-59（sendIfNeeded）, 75-148（虚拟手柄）, 156-201（rumble 回放）, 217-230（DS 式分配）, 205-251（30Hz loop）`
 - 后端对照：`Simulator.java:457-471（broadcastRumble/Stop）`
 
 ---
