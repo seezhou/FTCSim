@@ -171,7 +171,6 @@ export function startGamepads({ send, toast, host1, host2 }) {
   };
   const rumbleIndicator = (id, on) => {
     if (views[id]) views[id].el.classList.toggle('rumbling', on);
-    if (pads[id].rumbleEl) pads[id].rumbleEl.classList.toggle('hidden', false);
   };
   const cancelRumbleTimers = (id) => {
     const st = rumble[id];

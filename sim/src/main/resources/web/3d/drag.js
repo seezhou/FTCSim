@@ -4,8 +4,10 @@
 // the orbit-camera behavior untouched. Pose changes ride the existing
 // "sim.setPose" WebSocket message — the same channel the 2D frontend uses.
 import * as THREE from 'three';
+import { getHalfField } from './field';
 
-const LIMIT = 72;      // half field in inches — same clamp as the 2D page
+// half field comes from the backend fieldMessage.sizeIn (via field.getHalfField());
+// the 72 fallback there only applies if this runs before the first rebuild.
 const SEND_MS = 35;    // ~30 Hz pose updates while dragging
 
 export function startRobotDrag({ canvas, camera, robot, send }) {
@@ -24,7 +26,7 @@ export function startRobotDrag({ canvas, camera, robot, send }) {
   };
   const overRobot = () => raycaster.intersectObject(robot.group, true).length > 0;
   const groundPoint = () => raycaster.ray.intersectPlane(ground, hitP);
-  const clamp = (v) => Math.max(-LIMIT, Math.min(LIMIT, v));
+  const clamp = (v) => Math.max(-getHalfField(), Math.min(getHalfField(), v));
   // three(x, y, z) → FTC(x, y): ftcX = three.x, ftcY = -three.z
   const toFtc = (p) => ({ x: p.x, y: -p.z });
 

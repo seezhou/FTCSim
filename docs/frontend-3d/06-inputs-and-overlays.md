@@ -5,22 +5,22 @@ refs:
     anchor: "createBalls("
     lines: 29-94
     hash: bbfc913ed510
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/resources/web/3d/overlay.js
     anchor: "createOverlay("
     lines: 158-279
     hash: 1385c4d7f2f9
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/resources/web/3d/drag.js
     anchor: "startRobotDrag("
-    lines: 11-104
-    hash: 8794b79971f8
-    since: e9256b5
+    lines: 13-106
+    hash: 2b6bcdab4c90
+    since: f353923
   - path: sim/src/main/resources/web/3d/gamepad.js
     anchor: "class Pad"
     lines: 17-60
     hash: 5c5d2b515840
-    since: e9256b5
+    since: f353923
 ---
 
 # 输入与叠加层模块（balls / overlay / drag / gamepad）

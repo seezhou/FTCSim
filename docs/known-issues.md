@@ -11,22 +11,6 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 
 ## 待修（代码）
 
-### 1. 场地半场尺寸 `72` 硬编码三处，而后端其实已经下发了
-
-- **位置**：`web/3d/field.js:13`（`export const HALF = 72`）、`web/3d/drag.js:8`（`const LIMIT = 72`）、后端 `Field.java:15`（`HALF_SIZE_IN = 72.0`）
-- **问题**：后端 `fieldMessage()` 已经把尺寸发给前端了（`Simulator.java:385`：`f.put("sizeIn", Field.HALF_SIZE_IN * 2)`），但前端**完全没用**——`rebuild()` 里 `buildShell(fieldMsg.name)` 只传了 `name`，`sizeIn` 从未被读取，场地和拖拽边界仍按硬编码的 72 画
-- **影响**：现在无害（场地固定 144×144），但任何尺寸变化都会画错，且错得很隐蔽
-- **建议**：前端从 `fieldMsg.sizeIn / 2` 取半场尺寸，保留 72 作为缺省兜底；`drag.js` 的 `LIMIT` 同样从这一处取
-- **优先级**：低。但属于"数据只应有一份"的一致性问题，建议与 #3 一起收掉
-
-### 2. `rumbleIndicator` 有一行无效代码
-
-- **位置**：`web/3d/gamepad.js:174`
-- **问题**：`pads[id].rumbleEl.classList.toggle('hidden', false)` 是在移除一个**从未被添加过**的 `hidden` class，什么也没做。徽标显示实际由 CSS 控制：`style.css:165` 默认 `display:none`，`:167` `.gamepad.rumbling .rumbleInd { display: inline }`；而 `gamepad.js:173` 的 `toggle('rumbling', on)` 才是生效的那一行
-- **影响**：功能正常，但会误导后来读代码的人以为显示由 `hidden` 控制
-- **建议**：直接删掉这一行（若本意是想用 `hidden` 控制，应写成 `toggle('hidden', !on)`，但那样与 CSS 机制重复，删掉更干净）
-- **优先级**：极低
-
 ### 3. 前端硬编码了一整组赛季常量，与后端逐字重复
 
 - **位置**：`web/3d/field.js:232-240`（`CELL_PENT`、`CELL_DEPTH`、`CELL_BOTTOM`、`CELL_ARM_DROP`、`HIVE_PIVOT_Z`、`HIVE_Y`、`HIVE_TILT`）；另 `web/3d/webcam.js:28`（`MIN_FACING = 0.25`）
@@ -51,13 +35,6 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 - **建议**：把赛季专属交互抽成插件接口。完整设计与优先级见 `seasons/01-season-abstraction.md`
 - **优先级**：中。建议在明年赛季确定前做一次剥离（纯挪位置、不改功能、低风险）
 
-### 6. obstacle 高度没有下发，前端靠名字猜
-
-- **位置**：后端 `Simulator.java:407-409`（`fieldMessage` 只发 name / 边界 / color，**没有 height**，虽然 `Field.Obstacle` 类里有该字段）；前端 `field.js:193-202`（按名字正则猜：`HIVE foot bar`→1.5、`FLOWER`→21.5、`goal`→40，猜不到默认 1.5）
-- **影响**：新赛季出现名字不匹配的新障碍时，高度会画错成贴地薄片
-- **建议**：后端补发 `height`（一行的事）
-- **优先级**：低
-
 ---
 
 ## 待修（文档）
@@ -73,6 +50,9 @@ summary: 已知问题与待办：文档与代码不一致之处、代码待修�
 | `HIVE_TIP_BALLS` 记 3，代码是 4 | `docs/launcher/01-ball-launcher.md`（原 `.codebuddy/notes/ball-launcher.md`） | 已改为 **4**，并加校对注说明依据（`Field.java:290`，注释说明手册未给数字、sim 取 4） |
 | 结论 44：输入源优先级表述 + KEYMAP 行号归属错误 | `notes/research/sim-physics-research-notes.md` 结论 44（`:612-618`）+ 源码证据列表（`:624`） | 修正两点：①虚拟手柄**不是轮询源**，仅在物理/键盘都未激活时保留 `p.s`（依据 `gamepad.js:231-245`）；②WASD/方向键/Q·E 在 `applyKeyboard()`（`:44-51`）做轴向合成，不在 `KEYMAP`（`:12-14`），并补全 `KeyR→start`/`Backspace→back`/`Tab→guide` |
 | 结论 9：tip-ball 数字同步核查 | `notes/research/sim-physics-research-notes.md` | 全文 `HIVE_TIP_BALLS` 零命中，研究笔记从未引用该数字，无需同步；3/4 球更正已在 `docs/launcher/01-ball-launcher.md` 完成 |
+| #1 场地尺寸 72 硬编码三处 | `web/3d/field.js`（buildShell/rebuild + 新增 getHalfField）、`web/3d/drag.js`（LIMIT 改读 getHalfField）、`Simulator.java:408` | 前端改用后端已下发的 `sizeIn` 取半场，保留 72 兜底；`drag.js` 拖拽边界同样走动态半场。原"后端发了前端没用"已修复 |
+| #2 rumbleIndicator 无效行 | `web/3d/gamepad.js:174` | 删除 `toggle('hidden', false)` 无效行；徽标显示实际由 CSS `.gamepad.rumbling` 控制（`gamepad.js:173` 的 `toggle('rumbling', on)` 才生效） |
+| #6 obstacle 高度未下发 | `Simulator.java:408` + 前端 `web/3d/field.js:199` | 后端 `fieldMessage` 补发 `height`；前端 `obstacleHeight()` 本就优先读 `o.height`，如今生效，不再按名字猜高度 |
 
 ---
 

@@ -405,7 +405,7 @@ public final class Simulator {
         for (Field.AprilTag t : world.field.tags) tags.add(Map.of("id", t.id, "name", t.name, "x", t.x, "y", t.y, "z", t.z, "yawDeg", t.yawDeg, "size", t.sizeIn));
         f.put("tags", tags);
         List<Map<String, Object>> obs = new ArrayList<>();
-        for (Field.Obstacle o : world.field.obstacles) obs.add(Map.of("name", o.name, "minX", o.minX, "minY", o.minY, "maxX", o.maxX, "maxY", o.maxY, "color", o.color));
+        for (Field.Obstacle o : world.field.obstacles) obs.add(Map.of("name", o.name, "minX", o.minX, "minY", o.minY, "maxX", o.maxX, "maxY", o.maxY, "height", o.height, "color", o.color));
         f.put("obstacles", obs);
         return f;
     }

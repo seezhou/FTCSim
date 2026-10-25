@@ -5,12 +5,12 @@ refs:
     anchor: "public void step(double dt)"
     lines: 40-57
     hash: e219079096ee
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/java/ftcsim/hardware/SimBNO055IMU.java
     anchor: "private double heading()"
     lines: 38-38
     hash: 87db633e03c4
-    since: e9256b5
+    since: f353923
 ---
 
 # FTCSim 传感器模型图（Phase 1 · 第 3 步：传感器模型）

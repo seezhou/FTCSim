@@ -5,12 +5,12 @@ refs:
     anchor: "public static Field byName(String name)"
     lines: 170-177
     hash: 0cba9b497f22
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/java/ftcsim/physics/Projectile.java
     anchor: "private void resolveCell(Field.Cluster cl)"
     lines: 203-249
     hash: d26091e51d6b
-    since: e9256b5
+    since: f353923
 ---
 
 # 赛季可复用性分层图（通用引擎 / 几何数据 / 赛季插件）

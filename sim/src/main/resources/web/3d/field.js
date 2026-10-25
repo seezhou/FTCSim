@@ -10,7 +10,9 @@
 //   three.js:        x = ftc.x, y = ftc.z (height), z = -ftc.y. 1 unit = 1 inch.
 import * as THREE from 'three';
 
-export const HALF = 72;      // field half size, inches
+export const HALF = 72;      // field half size fallback, inches (backend sends sizeIn)
+let halfField = HALF;          // current half size, updated from fieldMessage.sizeIn in rebuild()
+export function getHalfField() { return halfField; }
 const WALL_H = 9;            // visual wall height
 const TILE = 12;             // foam tile size
 
@@ -124,10 +126,12 @@ export function createField(scene) {
   }
 
   // ---------------------------------------------------------------- static shell
+  // Draws at the field's actual half-size. `halfField` is updated from the backend's
+  // fieldMessage.sizeIn in rebuild(); it falls back to HALF (72) if the message omits it.
   function buildShell(name) {
     // floor
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(2 * HALF, 2 * HALF),
+      new THREE.PlaneGeometry(2 * halfField, 2 * halfField),
       new THREE.MeshStandardMaterial({ color: '#20262f', roughness: 0.95, metalness: 0 }));
     floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
     root.add(floor);
@@ -135,25 +139,25 @@ export function createField(scene) {
     // faint alliance-wall tints (red wall at FTC -Y => three +Z, blue at three -Z)
     for (const [z, color] of [[1, 0xd93b2b], [-1, 0x2b5fd9]]) {
       const tint = new THREE.Mesh(
-        new THREE.PlaneGeometry(2 * HALF, 2 * HALF),
+        new THREE.PlaneGeometry(2 * halfField, 2 * halfField),
         new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.05, depthWrite: false }));
-      tint.rotation.x = -Math.PI / 2; tint.position.set(0, 0.02, z * HALF / 2);
+      tint.rotation.x = -Math.PI / 2; tint.position.set(0, 0.02, z * halfField / 2);
       root.add(tint);
     }
 
     // tile grid
-    const grid = new THREE.GridHelper(2 * HALF, (2 * HALF) / TILE, 0x3a4352, 0x2b323e);
+    const grid = new THREE.GridHelper(2 * halfField, (2 * halfField) / TILE, 0x3a4352, 0x2b323e);
     grid.position.y = 0.04;
     root.add(grid);
 
     // perimeter walls
     const wallMat = new THREE.MeshStandardMaterial({ color: '#39414f', roughness: 0.8 });
-    const wallGeom = new THREE.BoxGeometry(2 * HALF + 4, WALL_H, 2);
+    const wallGeom = new THREE.BoxGeometry(2 * halfField + 4, WALL_H, 2);
     const walls = [
-      { pos: [0, WALL_H / 2, HALF + 1], color: 0xd93b2b },   // red wall (FTC -Y)
-      { pos: [0, WALL_H / 2, -HALF - 1], color: 0x2b5fd9 },  // blue wall (FTC +Y)
-      { pos: [HALF + 1, WALL_H / 2, 0], rot: Math.PI / 2, color: null },
-      { pos: [-HALF - 1, WALL_H / 2, 0], rot: Math.PI / 2, color: null },
+      { pos: [0, WALL_H / 2, halfField + 1], color: 0xd93b2b },   // red wall (FTC -Y)
+      { pos: [0, WALL_H / 2, -halfField - 1], color: 0x2b5fd9 },  // blue wall (FTC +Y)
+      { pos: [halfField + 1, WALL_H / 2, 0], rot: Math.PI / 2, color: null },
+      { pos: [-halfField - 1, WALL_H / 2, 0], rot: Math.PI / 2, color: null },
     ];
     for (const w of walls) {
       const m = new THREE.Mesh(wallGeom, wallMat);
@@ -162,7 +166,7 @@ export function createField(scene) {
       root.add(m);
       if (w.color) { // thin colored strip on the alliance walls
         const strip = new THREE.Mesh(
-          new THREE.BoxGeometry(2 * HALF + 4, 1.5, 0.4),
+          new THREE.BoxGeometry(2 * halfField + 4, 1.5, 0.4),
           new THREE.MeshBasicMaterial({ color: w.color }));
         strip.position.set(w.pos[0], 1.2, w.pos[2] - Math.sign(w.pos[2]) * 1.2);
         root.add(strip);
@@ -551,6 +555,8 @@ export function createField(scene) {
   function rebuild(fieldMsg) {
     clear();
     labelMeshes.length = 0;
+    if (typeof fieldMsg.sizeIn === 'number' && fieldMsg.sizeIn > 0) halfField = fieldMsg.sizeIn / 2;
+    else halfField = HALF;
     buildShell(fieldMsg.name);
     buildZones(fieldMsg.zones);
     buildObstacles(fieldMsg.obstacles);

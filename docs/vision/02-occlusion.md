@@ -5,22 +5,22 @@ refs:
     anchor: "void simFrame(CameraMount"
     lines: 165-253
     hash: 0a126747f897
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/java/org/firstinspires/ftc/vision/apriltag/AprilTagProcessorImpl.java
     anchor: "Sight see("
     lines: 115-138
     hash: f8593a9e1c14
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/java/ftcsim/hardware/DistanceModel.java
     anchor: "rayToAabb("
     lines: 32-45
     hash: 07a9ed1995e0
-    since: e9256b5
+    since: f353923
   - path: sim/src/main/java/ftcsim/physics/Field.java
     anchor: "class Obstacle"
     lines: 18-26
     hash: 60468f438239
-    since: e9256b5
+    since: f353923
 ---
 
 # AprilTag 遮挡判定（设计草案）
