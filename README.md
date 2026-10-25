@@ -235,9 +235,9 @@ already started with `./gradlew run`.
 
 ## License
 
-This repository is a fork of [WheatleyFromPortal2/FTCSim](https://github.com/WheatleyFromPortal2/FTCSim).
-The upstream project currently declares no license, so this fork does not relicense the upstream code;
-a project-wide license can only be added once that is clarified with the upstream author.
+FTCSim is available under the [MIT License](LICENSE). It is a fork of
+[WheatleyFromPortal2/FTCSim](https://github.com/WheatleyFromPortal2/FTCSim); the upstream project
+declares no license of its own, and its attribution is preserved above.
 
 Third-party components keep their own licenses. The FTC SDK, Three.js, OpenCV/EasyOpenCV/AprilTag,
 Gson, Kotlin and JSON-java are redistributed or loaded under the terms listed in

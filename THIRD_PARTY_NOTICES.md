@@ -1,8 +1,9 @@
 # Third-party notices
 
-FTCSim is a fork of [WheatleyFromPortal2/FTCSim](https://github.com/WheatleyFromPortal2/FTCSim).
-The upstream repository does not currently declare a license, so this file does not grant rights to
-upstream code or relicense it. See the License section of [README.md](README.md).
+FTCSim is a fork of [WheatleyFromPortal2/FTCSim](https://github.com/WheatleyFromPortal2/FTCSim) and
+is distributed under the [MIT License](LICENSE). This file covers the third-party components below,
+which keep their own licenses. See the License section of [README.md](README.md) for the upstream
+attribution.
 
 Full license texts are in [`licenses/`](licenses/). The table lists what the simulator actually
 redistributes or loads; team libraries (RoadRunner, Pedro Pathing, FTCLib, ...) are resolved from the
